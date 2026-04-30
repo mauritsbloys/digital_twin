@@ -28,12 +28,17 @@ ny = size(C, 1);
 Sx = zeros(N*ny, nx);
 Su = zeros(N*ny, N*nu);
 
-Ak = eye(nx);
+% Precompute A^0 ... A^N to avoid repeated matrix powers in the inner loop
+A_pow = cell(N+1, 1);
+A_pow{1} = eye(nx);
+for k = 1:N
+    A_pow{k+1} = A * A_pow{k};
+end
+
 for i = 1:N
-    Ak = A * Ak;
-    Sx((i-1)*ny+1:i*ny, :) = C * Ak;
+    Sx((i-1)*ny+1:i*ny, :) = C * A_pow{i+1};
     for j = 1:i
-        Su((i-1)*ny+1:i*ny, (j-1)*nu+1:j*nu) = C * A^(i-j) * B;
+        Su((i-1)*ny+1:i*ny, (j-1)*nu+1:j*nu) = C * A_pow{i-j+1} * B;
     end
 end
 
@@ -62,7 +67,7 @@ U_opt = quadprog(H_qp, f_qp, A_ineq, b_ineq, [], [], lb, ub, [], opts);
 
 if isempty(U_opt)
     warning('MPC: quadprog returned no solution, using u_prev');
-    u_mpc = u_prev;
+    u_mpc = min(max(u_prev, u_min), u_max);
 else
     u_mpc = U_opt(1:nu);
 end
