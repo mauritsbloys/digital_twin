@@ -10,6 +10,8 @@ twin_config;
 %% Load plant matrices from pre-computed workspace
 load(fullfile('../WIS-sim/simulation/distributed_workspace.mat'), ...
     'comb_Pool_disc', 'h');
+fprintf('Sample time h = %.4f s (expected ~1 s for 1 Hz)\n', h);
+assert(h > 0.1 && h < 10.0, 'pause duration h=%.4f is outside expected range', h);
 A = comb_Pool_disc.A;
 B = comb_Pool_disc.B;
 C = comb_Pool_disc.C;
@@ -27,8 +29,11 @@ DISTURBANCE_EPOCH = 20;
 disturbance = [-0.015; 0; 0];   % outflow from pool 1 [m³/min equivalent]
 
 %% Initialise logging
-timestamp  = datestr(now, 'yyyymmdd_HHMMSS');
+timestamp  = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
 log_file   = fullfile(LOG_DIR, sprintf('twin_log_%s.csv', timestamp));
+if ~isfolder(LOG_DIR)
+    mkdir(LOG_DIR);
+end
 
 %% Initialise plots
 if PLOT_LIVE
@@ -52,7 +57,7 @@ for epoch = 1:MAX_STEPS
     %% 1. Simulator: advance internal plant
     d = zeros(size(A,1), 1);
     if epoch >= DISTURBANCE_EPOCH
-        d(1) = disturbance(1);
+        d(1) = disturbance(1);  % state-space disturbance on pool-1 level state
     end
     x_plant = A * x_plant + B * u_prev + d;
     y_meas  = C * x_plant + y_ref;   % absolute water levels
@@ -63,7 +68,7 @@ for epoch = 1:MAX_STEPS
     [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_prev);
 
     %% 3. MPC
-    u_mpc = twin_mpc_solve(A, B, C, x_hat, zeros(3,1), Q_mpc, R_mpc, N, du_max, u_min, u_max, u_prev);
+    u_mpc = twin_mpc_solve(A, B, C, x_hat, zeros(size(C,1),1), Q_mpc, R_mpc, N, du_max, u_min, u_max, u_prev);
     u_prev = u_mpc;
 
     %% 4. Compute MPC predicted trajectory for plotting
@@ -84,7 +89,7 @@ for epoch = 1:MAX_STEPS
     y_pred_hist = [y_pred_hist, y_pred];
     innov_hist  = [innov_hist,  innov];
     u_hist      = [u_hist,      u_mpc];
-    K_gain      = (P * C') / (C * P * C' + R_kal);
+    K_gain      = (P * C') / (C * P * C' + R_kal);  % approx from post-update P
     K_diag_hist = [K_diag_hist, diag(K_gain(1:3,:))];
 
     if PLOT_LIVE
