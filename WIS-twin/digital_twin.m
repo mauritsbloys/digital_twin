@@ -82,6 +82,7 @@ for epoch = 1:MAX_STEPS
     %% 5. Log
     y_pred = C * x_hat + y_ref;
     twin_log_write(log_file, epoch, y_meas, y_pred, innov, u_mpc, triggered);
+    copyfile(log_file, fullfile(LOG_DIR, 'twin_log.csv'));
 
     %% 6. Update history and plot
     t_vec       = [t_vec, epoch];
