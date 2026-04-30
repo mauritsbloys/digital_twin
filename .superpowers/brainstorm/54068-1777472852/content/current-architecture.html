@@ -1,0 +1,68 @@
+<h2>Bestaande WIS-architectuur</h2>
+<p class="subtitle">Dit is wat er nu al is — de basis voor de digital twin</p>
+
+<div style="font-family: monospace; font-size: 13px; line-height: 1.8; background: #0d1117; color: #c9d1d9; border-radius: 10px; padding: 28px 32px; margin: 16px 0;">
+
+<div style="display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap;">
+
+  <!-- Physical system -->
+  <div style="flex: 1; min-width: 200px;">
+    <div style="color: #58a6ff; font-weight: bold; margin-bottom: 8px;">⬛ FYSIEK SYSTEEM (lab)</div>
+    <div style="border: 1px solid #30363d; border-radius: 6px; padding: 12px; background: #161b22;">
+      <div style="color: #7ee787;">3× Waterbassin</div>
+      <div style="color: #7ee787;">3× Poort (servo)</div>
+      <div style="color: #7ee787;">7× Druksensor</div>
+      <div style="color: #7ee787;">4× Firefly-node (WSN)</div>
+      <div style="margin-top: 8px; color: #8b949e; font-size: 11px;">1 Hz meting via radio</div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div style="display:flex; align-items:center; padding-top: 32px; color: #f0883e; font-size: 18px;">⟺<br><span style="font-size:10px; color:#8b949e;">USB<br>115200</span></div>
+
+  <!-- Control layer -->
+  <div style="flex: 1.4; min-width: 240px;">
+    <div style="color: #58a6ff; font-weight: bold; margin-bottom: 8px;">🖥 MATLAB/PYTHON (nu)</div>
+    <div style="border: 1px solid #30363d; border-radius: 6px; padding: 12px; background: #161b22;">
+      <div style="color: #e3b341;">FireflyCommunicationPSTC.m</div>
+      <div style="color: #8b949e; font-size: 11px; margin-left: 8px;">→ ontvangt: epoch, y, u, trigger</div>
+      <div style="color: #8b949e; font-size: 11px; margin-left: 8px;">→ stuurt: slaapperiode dk, control u</div>
+      <div style="margin-top: 6px; color: #e3b341;">wis_simulation.py</div>
+      <div style="color: #8b949e; font-size: 11px; margin-left: 8px;">→ simuleert plant als hardware ontbreekt</div>
+      <div style="margin-top: 6px; color: #e3b341;">log_terminal.py</div>
+      <div style="color: #8b949e; font-size: 11px; margin-left: 8px;">→ logt ruwe sensordata naar CSV</div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div style="display:flex; align-items:center; padding-top: 32px; color: #f0883e; font-size: 18px;">⬅<br><span style="font-size:10px; color:#8b949e;">mat-<br>file</span></div>
+
+  <!-- Offline design -->
+  <div style="flex: 1.2; min-width: 200px;">
+    <div style="color: #58a6ff; font-weight: bold; margin-bottom: 8px;">📐 OFFLINE ONTWERP</div>
+    <div style="border: 1px solid #30363d; border-radius: 6px; padding: 12px; background: #161b22;">
+      <div style="color: #bc8cff;">identification/main.m</div>
+      <div style="color: #8b949e; font-size: 11px; margin-left: 8px;">→ leert poolmodellen uit data</div>
+      <div style="margin-top: 6px; color: #bc8cff;">cantoni_LMI.m</div>
+      <div style="color: #8b949e; font-size: 11px; margin-left: 8px;">→ ontwerpt gedistribueerde regelaar</div>
+      <div style="margin-top: 6px; color: #bc8cff;">simulate_3pools.slx</div>
+      <div style="color: #8b949e; font-size: 11px; margin-left: 8px;">→ offline test regelaar</div>
+      <div style="margin-top: 6px; color: #bc8cff;">simulate_3pools_hil.slx</div>
+      <div style="color: #8b949e; font-size: 11px; margin-left: 8px;">→ HIL: model + echte hardware</div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top: 24px; border: 1px dashed #f0883e; border-radius: 6px; padding: 12px; background: #1a1208;">
+  <span style="color: #f0883e; font-weight: bold;">❓ Wat ontbreekt voor een digital twin:</span>
+  <div style="color: #8b949e; margin-top: 6px;">
+    • Real-time synchronisatie model ↔ hardware (model loopt nu <em>offline</em>)<br>
+    • State estimator: modelafwijking corrigeren met live sensordata<br>
+    • Bidirectionele koppeling: model voorspelt, hardware valideert
+  </div>
+</div>
+
+</div>
+
+<p style="margin-top: 16px; color: #8b949e; font-size: 13px;">Klaar? Ga dan terug naar de terminal voor de eerste vraag.</p>

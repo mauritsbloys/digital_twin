@@ -1,0 +1,72 @@
+<h2>Drie aanpakken voor de Digital Twin</h2>
+<p class="subtitle">Kies de aanpak die het beste past bij de scope van je BEP</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Open-loop vergelijking</h3>
+      <p><strong>Hoe:</strong> Model draait parallel aan hardware/simulator vanuit dezelfde beginconditie. Sensordata en modeluitvoer worden naast elkaar getoond. Afwijking = verschil tussen meting en model.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Voordelen</h4><ul>
+          <li>Laagste complexiteit</li>
+          <li>Geen nieuwe theorie nodig</li>
+          <li>Snel te bouwen</li>
+        </ul></div>
+        <div class="cons"><h4>Nadelen</h4><ul>
+          <li>Model drifts weg van realiteit</li>
+          <li>Na een paar minuten zinloze afwijking</li>
+          <li>Geen echte "twin"</li>
+        </ul></div>
+      </div>
+      <p style="margin-top:8px; color:#e3b341; font-size:12px;">⏱ Bouwtijd: ~1 dag</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Periodieke state reset <span style="color:#7ee787; font-size:12px;">★ Aanbevolen</span></h3>
+      <p><strong>Hoe:</strong> Elke N seconden wordt de modelstaat gereset naar de huidige meting. Tussen resets loopt het model open-loop en voorspelt het de volgende N seconden. Afwijking vóór de reset toont hoe goed het model is.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Voordelen</h4><ul>
+          <li>Blijft altijd gesynchroniseerd</li>
+          <li>Matige complexiteit</li>
+          <li>Duidelijk conceptueel verhaal</li>
+          <li>Goed realiseerbaar in BEP-scope</li>
+        </ul></div>
+        <div class="cons"><h4>Nadelen</h4><ul>
+          <li>Sprongen bij resetten</li>
+          <li>Niet continu bijgewerkt</li>
+        </ul></div>
+      </div>
+      <p style="margin-top:8px; color:#e3b341; font-size:12px;">⏱ Bouwtijd: ~3 dagen</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Kalman filter observer</h3>
+      <p><strong>Hoe:</strong> Een Kalman filter corrigeert continu de modelstaat op basis van metingen. Elke stap: model voorspelt (predict), meting corrigeert (update). Afwijking vóór correctie = innovatie.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Voordelen</h4><ul>
+          <li>Meest nauwkeurig</li>
+          <li>Theoretisch solide</li>
+          <li>Glad (geen sprongen)</li>
+          <li>Sterkste scriptieverhaal</li>
+        </ul></div>
+        <div class="cons"><h4>Nadelen</h4><ul>
+          <li>Ruis-covarianties afstellen (Q, R)</li>
+          <li>Hogere implementatiecomplexiteit</li>
+          <li>Meer tijd nodig</li>
+        </ul></div>
+      </div>
+      <p style="margin-top:8px; color:#e3b341; font-size:12px;">⏱ Bouwtijd: ~1 week</p>
+    </div>
+  </div>
+
+</div>
+
+<p style="margin-top:16px; color:#8b949e; font-size:13px;">Klik een optie aan en laat het weten in de terminal.</p>

@@ -1,0 +1,96 @@
+<h2>Digital Twin — Architectuur</h2>
+<p class="subtitle">Vier lagen, opgebouwd op bestaande WIS-code</p>
+
+<div style="font-family: monospace; font-size: 13px; line-height: 1.9; background: #0d1117; color: #c9d1d9; border-radius: 10px; padding: 28px 32px; margin: 16px 0;">
+
+  <!-- Layer 1: Data source -->
+  <div style="border: 1px solid #30363d; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; background: #161b22;">
+    <div style="color: #58a6ff; font-weight: bold; margin-bottom: 6px;">① DATA-LAAG &nbsp;<span style="color:#8b949e; font-weight:normal; font-size:11px;">schakelbaar</span></div>
+    <div style="display:flex; gap:24px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:160px; border:1px solid #21262d; border-radius:6px; padding:10px; background:#0d1117;">
+        <div style="color:#7ee787;">Hardware-modus</div>
+        <div style="color:#8b949e; font-size:11px; margin-top:4px;">
+          Firefly-nodes → USB serial<br>
+          115200 baud, 1 Hz<br>
+          <em>log_terminal.py leest mee</em>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;color:#f0883e;">⟵ USE_HARDWARE ⟶</div>
+      <div style="flex:1; min-width:160px; border:1px solid #21262d; border-radius:6px; padding:10px; background:#0d1117;">
+        <div style="color:#7ee787;">Simulator-modus</div>
+        <div style="color:#8b949e; font-size:11px; margin-top:4px;">
+          wis_simulation.py<br>
+          zelfde protocol, geen hardware<br>
+          <em>disturbance injecteerbaar</em>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; color:#8b949e; margin-bottom:8px;">↓ y(k): waterpeilen, u(k): stuuringrepen</div>
+
+  <!-- Layer 2: Observer -->
+  <div style="border: 2px solid #f0883e; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; background: #1a1208;">
+    <div style="color: #f0883e; font-weight: bold; margin-bottom: 6px;">② KALMAN FILTER OBSERVER &nbsp;<span style="color:#8b949e; font-weight:normal; font-size:11px;">nieuw te bouwen</span></div>
+    <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:12px;">
+      <div style="flex:1; min-width:140px;">
+        <div style="color:#e3b341;">Predict-stap:</div>
+        <div style="color:#8b949e;">x̂⁻(k) = A·x̂(k-1) + B·u(k)</div>
+        <div style="color:#8b949e;">P⁻(k) = A·P·Aᵀ + Q</div>
+      </div>
+      <div style="flex:1; min-width:140px;">
+        <div style="color:#e3b341;">Update-stap:</div>
+        <div style="color:#8b949e;">K = P⁻·Cᵀ·(C·P⁻·Cᵀ + R)⁻¹</div>
+        <div style="color:#8b949e;">x̂(k) = x̂⁻(k) + K·(y - C·x̂⁻)</div>
+        <div style="color:#8b949e;">innovatie = y - C·x̂⁻(k)</div>
+      </div>
+      <div style="flex:1; min-width:140px;">
+        <div style="color:#e3b341;">Parameters:</div>
+        <div style="color:#8b949e;">A, B, C → uit comb_Pool_disc</div>
+        <div style="color:#8b949e;">Q → procesruis (afstembaar)</div>
+        <div style="color:#8b949e;">R → sensorruis (uit kalibratie)</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; color:#8b949e; margin-bottom:8px;">↓ x̂(k), innovatie(k), P(k) elke seconde</div>
+
+  <!-- Layer 3: Logging -->
+  <div style="border: 1px solid #30363d; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; background: #161b22;">
+    <div style="color: #58a6ff; font-weight: bold; margin-bottom: 6px;">③ LOG-LAAG</div>
+    <div style="color:#8b949e; font-size:12px;">
+      CSV/JSON: epoch | y_meas | y_pred | innovatie | u | dk | triggered<br>
+      Wegschrijven elke stap → MATLAB leest voor plots, web leest voor dashboard
+    </div>
+  </div>
+
+  <div style="text-align:center; color:#8b949e; margin-bottom:8px;">↓</div>
+
+  <!-- Layer 4: Visualization -->
+  <div style="border: 1px solid #30363d; border-radius: 8px; padding: 14px 18px; background: #161b22;">
+    <div style="color: #58a6ff; font-weight: bold; margin-bottom: 6px;">④ VISUALISATIE-LAAG</div>
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:180px; border:1px solid #21262d; border-radius:6px; padding:10px; background:#0d1117;">
+        <div style="color:#bc8cff;">MATLAB live plots</div>
+        <div style="color:#8b949e; font-size:11px; margin-top:4px;">
+          • 3× waterpeil: meting vs. voorspelling<br>
+          • 3× stuuringreep u(k)<br>
+          • 3× innovatie (afwijking pre-correctie)<br>
+          • Kalman gain K over tijd
+        </div>
+      </div>
+      <div style="flex:1; min-width:180px; border:1px solid #21262d; border-radius:6px; padding:10px; background:#0d1117;">
+        <div style="color:#bc8cff;">Web dashboard</div>
+        <div style="color:#8b949e; font-size:11px; margin-top:4px;">
+          • Statuskaarten per bassin (✓/⚠)<br>
+          • Live grafieken (polling CSV)<br>
+          • Modelfout-indicator<br>
+          • Hardware/simulator-badge
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="color:#8b949e; font-size:13px; margin-top:12px;">Ziet deze architectuur er goed uit? Laat het weten in de terminal — dan gaan we naar sectie 2: dataflow en bestaande code hergebruik.</p>

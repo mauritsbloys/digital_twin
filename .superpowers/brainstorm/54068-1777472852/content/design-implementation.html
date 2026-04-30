@@ -1,0 +1,106 @@
+<h2>Implementatiedetails</h2>
+<p class="subtitle">Kalman filter kern, configuratie en dashboard</p>
+
+<div style="font-family: monospace; font-size: 12px; background: #0d1117; color: #c9d1d9; border-radius: 10px; padding: 24px 28px; margin: 16px 0; line-height: 1.7;">
+
+  <!-- twin_config.m -->
+  <div style="margin-bottom: 20px;">
+    <div style="color:#58a6ff; font-weight:bold; margin-bottom:6px;">📄 twin_config.m — configuratie</div>
+    <div style="border:1px solid #30363d; border-radius:6px; padding:14px; background:#161b22;">
+<pre style="margin:0; color:#c9d1d9; font-size:11px;">USE_HARDWARE = false;        <span style="color:#8b949e;">% true = Firefly serial, false = simulator CSV</span>
+
+<span style="color:#8b949e;">% Kalman ruis-covarianties (afstembaar)</span>
+Q = 1e-4 * eye(6);          <span style="color:#8b949e;">% procesruis  — groter = meer vertrouwen op meting</span>
+R = 1e-3 * eye(3);          <span style="color:#8b949e;">% sensorruis  — groter = meer vertrouwen op model</span>
+
+<span style="color:#8b949e;">% Setpoints waterpeilen [m]</span>
+y_ref = [0.25; 0.20; 0.15];
+
+<span style="color:#8b949e;">% Dashboard</span>
+LOG_FILE   = 'twin_log.csv';
+PLOT_LIVE  = true;           <span style="color:#8b949e;">% MATLAB live plots aan/uit</span>
+WEB_DASH   = true;           <span style="color:#8b949e;">% CSV wegschrijven voor web dashboard</span></pre>
+    </div>
+  </div>
+
+  <!-- digital_twin.m -->
+  <div style="margin-bottom: 20px;">
+    <div style="color:#f0883e; font-weight:bold; margin-bottom:6px;">📄 digital_twin.m — Kalman filter kern</div>
+    <div style="border:2px solid #f0883e; border-radius:6px; padding:14px; background:#1a1208;">
+<pre style="margin:0; color:#c9d1d9; font-size:11px;"><span style="color:#8b949e;">%% Initialisatie (eenmalig)</span>
+twin_config;
+cantoni_LMI;                 <span style="color:#8b949e;">% laadt comb_Pool_disc</span>
+A = comb_Pool_disc.A;
+B = comb_Pool_disc.B;
+C = comb_Pool_disc.C;
+
+x_hat = zeros(6,1);         <span style="color:#8b949e;">% initiële staatsschatting</span>
+P     = eye(6);             <span style="color:#8b949e;">% initiële foutcovariantie</span>
+
+<span style="color:#8b949e;">%% Per tijdstap (callback of loop)</span>
+<span style="color:#e3b341;">function</span> twin_update(y_meas, u)
+
+  <span style="color:#8b949e;">% — Predict —</span>
+  x_prior = A * x_hat + B * u;
+  P_prior = A * P * A' + Q;
+
+  <span style="color:#8b949e;">% — Innovatie (afwijking vóór correctie) —</span>
+  innovatie = y_meas - C * x_prior;
+
+  <span style="color:#8b949e;">% — Kalman gain —</span>
+  K = P_prior * C' / (C * P_prior * C' + R);
+
+  <span style="color:#8b949e;">% — Update —</span>
+  x_hat = x_prior + K * innovatie;
+  P     = (eye(6) - K*C) * P_prior;
+
+  <span style="color:#8b949e;">% — Log & visualiseer —</span>
+  twin_log(epoch, y_meas, C*x_prior, innovatie, u);
+  <span style="color:#e3b341;">if</span> PLOT_LIVE; twin_plot(); <span style="color:#e3b341;">end</span>
+<span style="color:#e3b341;">end</span></pre>
+    </div>
+  </div>
+
+  <!-- twin_dashboard.html -->
+  <div style="margin-bottom: 20px;">
+    <div style="color:#bc8cff; font-weight:bold; margin-bottom:6px;">📄 twin_dashboard.html — web dashboard (Chart.js)</div>
+    <div style="border:1px solid #30363d; border-radius:6px; padding:14px; background:#161b22;">
+      <div style="color:#8b949e; margin-bottom:8px; font-size:11px;">Statische HTML — openen in browser, pollt twin_log.csv elke 2s via fetch()</div>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <div style="border:1px solid #21262d; border-radius:4px; padding:8px 12px; background:#0d1117; flex:1; min-width:130px;">
+          <div style="color:#7ee787; font-size:11px;">📊 Pool 1</div>
+          <div style="color:#8b949e; font-size:10px;">meting vs. voorspelling<br>innovatie als lijn</div>
+        </div>
+        <div style="border:1px solid #21262d; border-radius:4px; padding:8px 12px; background:#0d1117; flex:1; min-width:130px;">
+          <div style="color:#7ee787; font-size:11px;">📊 Pool 2</div>
+          <div style="color:#8b949e; font-size:10px;">meting vs. voorspelling<br>innovatie als lijn</div>
+        </div>
+        <div style="border:1px solid #21262d; border-radius:4px; padding:8px 12px; background:#0d1117; flex:1; min-width:130px;">
+          <div style="color:#7ee787; font-size:11px;">📊 Pool 3</div>
+          <div style="color:#8b949e; font-size:10px;">meting vs. voorspelling<br>innovatie als lijn</div>
+        </div>
+        <div style="border:1px solid #21262d; border-radius:4px; padding:8px 12px; background:#0d1117; flex:1; min-width:130px;">
+          <div style="color:#e3b341; font-size:11px;">⚠ Afwijkingsmonitor</div>
+          <div style="color:#8b949e; font-size:10px;">alert als innovatie<br>&gt; drempelwaarde</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- File structure -->
+  <div>
+    <div style="color:#58a6ff; font-weight:bold; margin-bottom:6px;">📁 Bestandsstructuur (nieuw)</div>
+    <div style="border:1px solid #30363d; border-radius:6px; padding:14px; background:#161b22; font-size:11px; color:#8b949e;">
+<pre style="margin:0;">WIS-sim/
+└── digital_twin/           <span style="color:#f0883e;">← nieuwe map</span>
+    ├── twin_config.m       <span style="color:#f0883e;">← configuratie</span>
+    ├── digital_twin.m      <span style="color:#f0883e;">← Kalman filter kern</span>
+    ├── twin_log.m          <span style="color:#f0883e;">← CSV wegschrijven</span>
+    ├── twin_plot.m         <span style="color:#f0883e;">← MATLAB live plots</span>
+    └── twin_dashboard.html <span style="color:#f0883e;">← web dashboard</span></pre>
+    </div>
+  </div>
+
+</div>
+
+<p style="color:#8b949e; font-size:13px; margin-top:12px;">Goedkeuring op deze details? Dan schrijf ik het ontwerpspecificatie-document.</p>

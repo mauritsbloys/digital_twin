@@ -1,0 +1,102 @@
+<h2>Implementatiedetails — v2</h2>
+<p class="subtitle">Digital twin als eigen module, naast WIS-sim en WIS-com</p>
+
+<div style="font-family: monospace; font-size: 12px; background: #0d1117; color: #c9d1d9; border-radius: 10px; padding: 24px 28px; margin: 16px 0; line-height: 1.7;">
+
+  <!-- Folder structure -->
+  <div style="margin-bottom: 20px;">
+    <div style="color:#58a6ff; font-weight:bold; margin-bottom:6px;">📁 Projectstructuur</div>
+    <div style="border:1px solid #30363d; border-radius:6px; padding:14px; background:#161b22; font-size:11px;">
+<pre style="margin:0;">Bas Boot/
+├── WIS-com/                <span style="color:#7ee787;">← bestaand (hardware communicatie)</span>
+├── WIS-sim/                <span style="color:#7ee787;">← bestaand (identificatie & simulatie)</span>
+└── WIS-twin/               <span style="color:#f0883e;">← nieuw (digital twin)</span>
+    ├── README.md
+    ├── twin_config.m       <span style="color:#f0883e;">← USE_HARDWARE, Q, R, setpoints</span>
+    ├── digital_twin.m      <span style="color:#f0883e;">← Kalman filter kern + main loop</span>
+    ├── twin_log.m          <span style="color:#f0883e;">← CSV wegschrijven</span>
+    ├── twin_plot.m         <span style="color:#f0883e;">← MATLAB live plots</span>
+    ├── twin_dashboard.html <span style="color:#f0883e;">← web dashboard</span>
+    └── data/               <span style="color:#f0883e;">← twin_log.csv komt hier</span></pre>
+    </div>
+  </div>
+
+  <!-- twin_config.m -->
+  <div style="margin-bottom: 20px;">
+    <div style="color:#58a6ff; font-weight:bold; margin-bottom:6px;">📄 twin_config.m</div>
+    <div style="border:1px solid #30363d; border-radius:6px; padding:14px; background:#161b22;">
+<pre style="margin:0; color:#c9d1d9; font-size:11px;">USE_HARDWARE = false;
+
+Q = 1e-4 * eye(6);          <span style="color:#8b949e;">% procesruis</span>
+R = 1e-3 * eye(3);          <span style="color:#8b949e;">% sensorruis</span>
+
+y_ref      = [0.25; 0.20; 0.15];
+LOG_FILE   = 'data/twin_log.csv';
+PLOT_LIVE  = true;
+WEB_DASH   = true;
+
+<span style="color:#8b949e;">% Paden naar andere modules</span>
+addpath('../WIS-sim/simulation');
+addpath('../WIS-sim/functions');
+addpath('../WIS-sim/functions_jacob');</pre>
+    </div>
+  </div>
+
+  <!-- digital_twin.m -->
+  <div style="margin-bottom: 20px;">
+    <div style="color:#f0883e; font-weight:bold; margin-bottom:6px;">📄 digital_twin.m — Kalman filter kern</div>
+    <div style="border:2px solid #f0883e; border-radius:6px; padding:14px; background:#1a1208;">
+<pre style="margin:0; color:#c9d1d9; font-size:11px;"><span style="color:#8b949e;">%% Initialisatie</span>
+twin_config;
+cantoni_LMI;                 <span style="color:#8b949e;">% laadt comb_Pool_disc vanuit WIS-sim</span>
+A = comb_Pool_disc.A;
+B = comb_Pool_disc.B;
+C = comb_Pool_disc.C;
+
+x_hat = zeros(6,1);
+P     = eye(6);
+
+<span style="color:#8b949e;">%% Per tijdstap</span>
+<span style="color:#e3b341;">function</span> twin_update(y_meas, u, epoch)
+  x_prior   = A * x_hat + B * u;
+  P_prior   = A * P * A' + Q;
+  innovatie = y_meas - C * x_prior;
+  K         = P_prior * C' / (C * P_prior * C' + R);
+  x_hat     = x_prior + K * innovatie;
+  P         = (eye(6) - K*C) * P_prior;
+
+  twin_log(epoch, y_meas, C*x_prior, innovatie, u);
+  <span style="color:#e3b341;">if</span> PLOT_LIVE; twin_plot(); <span style="color:#e3b341;">end</span>
+<span style="color:#e3b341;">end</span></pre>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div>
+    <div style="color:#bc8cff; font-weight:bold; margin-bottom:6px;">📄 twin_dashboard.html — web dashboard</div>
+    <div style="border:1px solid #30363d; border-radius:6px; padding:14px; background:#161b22;">
+      <div style="color:#8b949e; font-size:11px; margin-bottom:8px;">Statische HTML, openen via bestandsverkenner — pollt data/twin_log.csv elke 2s</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <div style="border:1px solid #21262d; border-radius:4px; padding:8px 10px; background:#0d1117; flex:1; min-width:120px; text-align:center;">
+          <div style="color:#7ee787; font-size:11px;">📊 Pool 1–3</div>
+          <div style="color:#8b949e; font-size:10px;">meting vs. voorspelling + innovatie</div>
+        </div>
+        <div style="border:1px solid #21262d; border-radius:4px; padding:8px 10px; background:#0d1117; flex:1; min-width:120px; text-align:center;">
+          <div style="color:#e3b341; font-size:11px;">🎛 Stuuringrepen</div>
+          <div style="color:#8b949e; font-size:10px;">u(k) per poort over tijd</div>
+        </div>
+        <div style="border:1px solid #21262d; border-radius:4px; padding:8px 10px; background:#0d1117; flex:1; min-width:120px; text-align:center;">
+          <div style="color:#f0883e; font-size:11px;">⚠ Afwijking</div>
+          <div style="color:#8b949e; font-size:10px;">alert bij innovatie &gt; drempel</div>
+        </div>
+        <div style="border:1px solid #21262d; border-radius:4px; padding:8px 10px; background:#0d1117; flex:1; min-width:120px; text-align:center;">
+          <div style="color:#58a6ff; font-size:11px;">🔌 Modus-badge</div>
+          <div style="color:#8b949e; font-size:10px;">Hardware / Simulator</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="color:#8b949e; font-size:13px; margin-top:12px;">Ziet dit er goed uit? Dan schrijf ik het volledige ontwerpspecificatie-document.</p>

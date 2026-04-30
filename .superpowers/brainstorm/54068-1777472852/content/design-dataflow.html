@@ -1,0 +1,80 @@
+<h2>Dataflow & Hergebruik</h2>
+<p class="subtitle">Wat je aanpast vs. wat je nieuw bouwt</p>
+
+<div style="font-family: monospace; font-size: 12px; background: #0d1117; color: #c9d1d9; border-radius: 10px; padding: 24px 28px; margin: 16px 0;">
+
+  <!-- Existing code column -->
+  <div style="display:flex; gap:24px; flex-wrap:wrap; margin-bottom:24px;">
+
+    <div style="flex:1; min-width:220px;">
+      <div style="color:#7ee787; font-weight:bold; margin-bottom:8px;">✅ Bestaande code (ongewijzigd)</div>
+      <div style="border:1px solid #238636; border-radius:6px; padding:10px; background:#0d1117; margin-bottom:8px;">
+        <div style="color:#7ee787;">wis_simulation.py</div>
+        <div style="color:#8b949e; font-size:11px;">Simulator-modus databron — al af</div>
+      </div>
+      <div style="border:1px solid #238636; border-radius:6px; padding:10px; background:#0d1117; margin-bottom:8px;">
+        <div style="color:#7ee787;">log_terminal.py</div>
+        <div style="color:#8b949e; font-size:11px;">Hardware-modus logging — al af</div>
+      </div>
+      <div style="border:1px solid #238636; border-radius:6px; padding:10px; background:#0d1117; margin-bottom:8px;">
+        <div style="color:#7ee787;">cantoni_LMI.m</div>
+        <div style="color:#8b949e; font-size:11px;">Levert comb_Pool_disc (A,B,C matrices) — al af</div>
+      </div>
+      <div style="border:1px solid #238636; border-radius:6px; padding:10px; background:#0d1117;">
+        <div style="color:#7ee787;">parse_serial_log.py</div>
+        <div style="color:#8b949e; font-size:11px;">CSV exporteren uit sensordata — al af</div>
+      </div>
+    </div>
+
+    <div style="flex:1; min-width:220px;">
+      <div style="color:#e3b341; font-weight:bold; margin-bottom:8px;">🔧 Licht aanpassen</div>
+      <div style="border:1px solid #9e6a03; border-radius:6px; padding:10px; background:#0d1117; margin-bottom:8px;">
+        <div style="color:#e3b341;">FireflyCommunicationPSTC.m</div>
+        <div style="color:#8b949e; font-size:11px;">Callback uitbreiden: na elke meting ook twin_update() aanroepen</div>
+      </div>
+      <div style="border:1px solid #9e6a03; border-radius:6px; padding:10px; background:#0d1117;">
+        <div style="color:#e3b341;">parse_serial_log.py</div>
+        <div style="color:#8b949e; font-size:11px;">Optioneel: ook innovatie + x̂ wegschrijven naar CSV</div>
+      </div>
+    </div>
+
+    <div style="flex:1; min-width:220px;">
+      <div style="color:#f0883e; font-weight:bold; margin-bottom:8px;">🆕 Nieuw bouwen</div>
+      <div style="border:1px solid #f0883e; border-radius:6px; padding:10px; background:#0d1117; margin-bottom:8px;">
+        <div style="color:#f0883e;">digital_twin.m</div>
+        <div style="color:#8b949e; font-size:11px;">Kalman filter kern: predict, update, log, plot</div>
+      </div>
+      <div style="border:1px solid #f0883e; border-radius:6px; padding:10px; background:#0d1117; margin-bottom:8px;">
+        <div style="color:#f0883e;">twin_dashboard.html</div>
+        <div style="color:#8b949e; font-size:11px;">Web dashboard: poll CSV, toon live grafieken</div>
+      </div>
+      <div style="border:1px solid #f0883e; border-radius:6px; padding:10px; background:#0d1117;">
+        <div style="color:#f0883e;">twin_config.m</div>
+        <div style="color:#8b949e; font-size:11px;">USE_HARDWARE vlag, Q en R matrices, setpoints</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Data flow diagram -->
+  <div style="border:1px solid #30363d; border-radius:8px; padding:16px; background:#161b22;">
+    <div style="color:#58a6ff; font-weight:bold; margin-bottom:12px;">Dataflow per tijdstap (1 Hz)</div>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; line-height:2;">
+      <div style="border:1px solid #30363d; border-radius:4px; padding:4px 10px; background:#0d1117; color:#7ee787;">Hardware<br>/ Simulator</div>
+      <div style="color:#8b949e;">──y(k),u(k)──▶</div>
+      <div style="border:2px solid #f0883e; border-radius:4px; padding:4px 10px; background:#1a1208; color:#f0883e;">digital_twin.m<br>Kalman predict+update</div>
+      <div style="color:#8b949e;">──▶</div>
+      <div style="border:1px solid #30363d; border-radius:4px; padding:4px 10px; background:#0d1117; color:#e3b341;">twin_log.csv<br>epoch,y,ŷ,innov,u</div>
+      <div style="color:#8b949e;">──▶</div>
+      <div style="border:1px solid #30363d; border-radius:4px; padding:4px 10px; background:#0d1117; color:#bc8cff;">MATLAB plots<br>+ Web dashboard</div>
+    </div>
+    <div style="margin-top:12px; color:#8b949e; font-size:11px;">
+      • MATLAB plots: <code>drawnow</code> elke stap voor live update<br>
+      • Web dashboard: pollt twin_log.csv elke 2 seconden via JavaScript fetch()<br>
+      • Kalman matrices A,B,C komen rechtstreeks uit <code>comb_Pool_disc</code> (al beschikbaar na cantoni_LMI)
+    </div>
+  </div>
+
+</div>
+
+<p style="color:#8b949e; font-size:13px; margin-top:12px;">Klopt dit? Dan gaan we naar sectie 3: de exacte bestandsstructuur en Kalman filter implementatiedetails.</p>
