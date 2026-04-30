@@ -28,5 +28,6 @@ K = P_prior * C' / S;
 
 % Update
 x_hat = x_prior + K * innov;
-P     = (eye(size(P,1)) - K * C) * P_prior;
+IKC = eye(size(P,1)) - K * C;
+P   = IKC * P_prior * IKC' + K * R_kal * K';
 end
