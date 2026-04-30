@@ -1,5 +1,8 @@
-function handles = twin_plot_init(y_ref)
+function handles = twin_plot_init(y_ref, N)
 %TWIN_PLOT_INIT  Create 5 live-updating figure windows. Call once before the loop.
+%   handles = twin_plot_init(y_ref, N)
+%   y_ref : 3x1 reference water levels
+%   N     : MPC horizon length (number of predicted steps)
 %   Returns a struct of figure and axes handles for use in twin_plot_update.
 
 handles.fig = figure('Name', 'WIS Digital Twin', 'NumberTitle', 'off', ...
@@ -13,20 +16,23 @@ handles.ax_horizon = subplot(3,2,[5 6]); title('MPC predicted trajectory (curren
 
 colors = {'b','r','g'};
 for i = 1:3
-    handles.h_meas(i)  = plot(handles.ax_levels,  NaN, NaN, [colors{i} '-'],  'DisplayName', sprintf('Pool %d meas', i));
-    handles.h_pred(i)  = plot(handles.ax_levels,  NaN, NaN, [colors{i} '--'], 'DisplayName', sprintf('Pool %d pred', i));
-    handles.h_ref(i)   = yline(handles.ax_levels, y_ref(i), [colors{i} ':']);
-    handles.h_u(i)     = plot(handles.ax_u,        NaN, NaN, [colors{i} '-'],  'DisplayName', sprintf('u%d', i));
-    handles.h_innov(i) = plot(handles.ax_innov,    NaN, NaN, [colors{i} '-'],  'DisplayName', sprintf('innov%d', i));
-    handles.h_kg(i)    = plot(handles.ax_kgain,    NaN, NaN, [colors{i} '-'],  'DisplayName', sprintf('K%d', i));
+    handles.h_meas(i)    = plot(handles.ax_levels,  NaN, NaN, [colors{i} '-'],  'DisplayName', sprintf('Pool %d meas', i));
+    handles.h_pred(i)    = plot(handles.ax_levels,  NaN, NaN, [colors{i} '--'], 'DisplayName', sprintf('Pool %d pred', i));
+    handles.h_ref(i)     = yline(handles.ax_levels, y_ref(i), [colors{i} ':']);
+    handles.h_u(i)       = plot(handles.ax_u,        NaN, NaN, [colors{i} '-'],  'DisplayName', sprintf('u%d', i));
+    handles.h_innov(i)   = plot(handles.ax_innov,    NaN, NaN, [colors{i} '-'],  'DisplayName', sprintf('innov%d', i));
+    handles.h_kg(i)      = plot(handles.ax_kgain,    NaN, NaN, [colors{i} '-'],  'DisplayName', sprintf('K%d', i));
+    handles.h_hor(i)     = plot(handles.ax_horizon, NaN(1,N), NaN(1,N), [colors{i} '-o'], 'DisplayName', sprintf('Pool %d predicted', i));
+    handles.h_ref_hor(i) = yline(handles.ax_horizon, y_ref(i), [colors{i} ':']);
 end
 legend(handles.ax_levels, 'Location', 'best');
+legend(handles.ax_horizon, 'Location', 'best');
 yline(handles.ax_innov, 0, 'k:');
 end
 
 function twin_plot_update(handles, t_vec, y_hist, y_pred_hist, innov_hist, u_hist, K_diag_hist, mpc_traj, y_ref)
 %TWIN_PLOT_UPDATE  Refresh all live plot windows with current history.
-%   Call every time step inside the main loop, followed by drawnow.
+%   Call every time step inside the main loop.
 
 for i = 1:3
     set(handles.h_meas(i),  'XData', t_vec, 'YData', y_hist(i,:));
@@ -37,15 +43,10 @@ for i = 1:3
 end
 
 % MPC horizon preview
-cla(handles.ax_horizon);
 t_hor = t_vec(end) + (0:size(mpc_traj,2)-1);
-colors = {'b','r','g'};
 for i = 1:3
-    plot(handles.ax_horizon, t_hor, mpc_traj(i,:), [colors{i} '-o'], ...
-        'DisplayName', sprintf('Pool %d predicted', i));
-    yline(handles.ax_horizon, y_ref(i), [colors{i} ':']);
+    set(handles.h_hor(i), 'XData', t_hor, 'YData', mpc_traj(i,:));
 end
-legend(handles.ax_horizon, 'Location', 'best');
 
 drawnow;
 end
