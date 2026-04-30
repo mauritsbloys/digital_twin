@@ -8,16 +8,22 @@ header = 'epoch,y1_meas,y2_meas,y3_meas,y1_pred,y2_pred,y3_pred,innov1,innov2,in
 
 write_header = ~isfile(log_file);
 
+parent = fileparts(log_file);
+if ~isempty(parent) && ~isfolder(parent)
+    error('twin_log_write: directory does not exist: %s', parent);
+end
+
 fid = fopen(log_file, 'a');
 if fid == -1
     error('twin_log_write: cannot open %s', log_file);
 end
-
-if write_header
-    fprintf(fid, '%s\n', header);
+try
+    if write_header
+        fprintf(fid, '%s\n', header);
+    end
+    row = [epoch, y_meas(:)', y_pred(:)', innov(:)', u_mpc(:)', triggered];
+    fprintf(fid, '%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%g,%g,%g,%d\n', row);
+finally
+    fclose(fid);
 end
-
-row = [epoch, y_meas(:)', y_pred(:)', innov(:)', u_mpc(:)', triggered];
-fprintf(fid, '%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.2f,%.2f,%.2f,%d\n', row);
-fclose(fid);
 end
