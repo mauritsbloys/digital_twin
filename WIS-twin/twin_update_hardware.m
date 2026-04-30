@@ -34,6 +34,7 @@ u_mpc_prev = u_mpc;
 
 y_pred = C * x_hat + y_ref;
 twin_log_write(log_file, epoch, y_meas, y_pred, innov, u_mpc, 1);
+copyfile(log_file, fullfile(LOG_DIR, 'twin_log.csv'));
 
 t_vec       = [t_vec,       epoch];
 y_hist      = [y_hist,      y_meas];
