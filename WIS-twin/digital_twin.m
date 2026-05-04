@@ -28,12 +28,17 @@ x_plant = zeros(size(A,1), 1);
 DISTURBANCE_EPOCH = 20;
 disturbance = [-0.015; 0; 0];   % outflow from pool 1 [m³/min equivalent]
 
+%% Run duration — lower for quick tests, 1800 = 30 min full run
+MAX_STEPS = 60;
+
 %% Initialise logging
 timestamp  = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
 log_file   = fullfile(LOG_DIR, sprintf('twin_log_%s.csv', timestamp));
+log_file_latest = fullfile(LOG_DIR, 'twin_log.csv');
 if ~isfolder(LOG_DIR)
     mkdir(LOG_DIR);
 end
+if isfile(log_file_latest); delete(log_file_latest); end
 
 %% Initialise plots
 if PLOT_LIVE
@@ -41,7 +46,6 @@ if PLOT_LIVE
 end
 
 %% History buffers
-MAX_STEPS = 1800;
 t_vec        = [];
 y_hist       = zeros(3, 0);
 y_pred_hist  = zeros(3, 0);
@@ -82,6 +86,7 @@ for epoch = 1:MAX_STEPS
     %% 5. Log
     y_pred = C * x_hat + y_ref;
     twin_log_write(log_file, epoch, y_meas, y_pred, innov, u_mpc, triggered);
+    twin_log_write(log_file_latest, epoch, y_meas, y_pred, innov, u_mpc, triggered);
 
     %% 6. Update history and plot
     t_vec       = [t_vec, epoch];

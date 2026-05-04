@@ -16,7 +16,9 @@ if isempty(x_hat)
     u_mpc_prev = zeros(size(comb_Pool_disc.B, 2), 1);
     timestamp  = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
     log_file   = fullfile(LOG_DIR, sprintf('twin_log_%s.csv', timestamp));
+    log_file_latest = fullfile(LOG_DIR, 'twin_log.csv');
     if ~isfolder(LOG_DIR); mkdir(LOG_DIR); end
+    if isfile(log_file_latest); delete(log_file_latest); end
     t_vec = []; y_hist = zeros(3,0); y_pred_hist = zeros(3,0);
     innov_hist = zeros(3,0); u_hist = zeros(3,0); K_diag_hist = zeros(3,0);
     if PLOT_LIVE; plt = twin_plot_init(y_ref, N); end
@@ -33,6 +35,7 @@ u_mpc_prev = u_mpc;
 
 y_pred = C * x_hat + y_ref;
 twin_log_write(log_file, epoch, y_meas, y_pred, innov, u_mpc, 1);
+twin_log_write(log_file_latest, epoch, y_meas, y_pred, innov, u_mpc, 1);
 
 t_vec       = [t_vec, epoch];
 y_hist      = [y_hist,      y_meas];
