@@ -8,13 +8,15 @@ addpath(fileparts(mfilename('fullpath')));
 twin_config;
 
 %% Load plant matrices from pre-computed workspace
-load(fullfile('../WIS-sim/simulation/distributed_workspace.mat'), ...
-    'comb_Pool_disc', 'h');
-fprintf('Sample time h = %.4f s (expected ~1 s for 1 Hz)\n', h);
-assert(h > 0.1 && h < 10.0, 'pause duration h=%.4f is outside expected range', h);
-A = comb_Pool_disc.A;
-B = comb_Pool_disc.B;
-C = comb_Pool_disc.C;
+% comb_plant_cont is the continuous-time Cantoni plant (Ap, Bp, Cp).
+% We discretize it at 1 Hz here so the Kalman/MPC match the twin loop rate.
+load(fullfile('../WIS-sim/simulation/distributed_workspace.mat'), 'comb_plant_cont');
+plant_disc = c2d(comb_plant_cont, 1, 'zoh');
+A = plant_disc.A;
+B = plant_disc.B;
+C = plant_disc.C;
+Q_kal = Q_kal_scale * eye(size(A,1));
+R_kal = R_kal_scale * eye(size(C,1));
 
 %% Initialise Kalman state
 x_hat = zeros(size(A,1), 1);
@@ -101,7 +103,7 @@ for epoch = 1:MAX_STEPS
         twin_plot_update(plt, t_vec, y_hist, y_pred_hist, innov_hist, u_hist, K_diag_hist, mpc_traj, y_ref);
     end
 
-    pause(h);   % simulate real-time 1Hz
+    pause(H_LOOP);   % 0 = snel, 1 = real-time 1 Hz
 end
 
 fprintf('Digital twin finished. Log: %s\n', log_file);

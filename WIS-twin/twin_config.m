@@ -8,11 +8,9 @@ end
 % Data source
 USE_HARDWARE = false;  % true = Firefly serial, false = internal plant simulator
 
-% State dimension: 6 = 2 states per pool (Padé delay approximation) × 3 pools
-% Verify: load('../WIS-sim/simulation/distributed_workspace.mat','comb_Pool_disc'); size(comb_Pool_disc.A)
-% Kalman filter noise covariances
-Q_kal = 1e-4 * eye(6);   % process noise
-R_kal = 1e-3 * eye(3);   % measurement noise
+% Kalman filter noise covariances (scalars — expanded to eye(nx/ny)*scale after model load)
+Q_kal_scale = 1e-4;   % process noise scale
+R_kal_scale = 1e-3;   % measurement noise scale
 
 % MPC parameters
 N      = 10;             % prediction horizon [time steps]
@@ -24,6 +22,9 @@ u_max  = 255 * ones(3,1); % upper bound on gate opening
 
 % Setpoints [m]
 y_ref = [0.25; 0.20; 0.15];
+
+% Loop timing: 0 = zo snel mogelijk (testen), 1 = real-time 1 Hz
+H_LOOP = 0;
 
 % Logging and display
 LOG_DIR  = fullfile(fileparts(mfilename('fullpath')), 'data');

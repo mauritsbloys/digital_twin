@@ -722,6 +722,10 @@ PB(3, 3) = -1/alpha(2);
 comb_Pool_cont = ss(PA, PB, PC, PD);
 comb_Pool_disc = c2d(comb_Pool_cont,h,'zoh');
 
+%% Update saved workspace so digital twin can load comb_Pool_cont/disc
+save('distributed_workspace.mat');
+disp('Workspace updated with pool models (comb_Pool_cont, comb_Pool_disc).');
+
 
 
 
