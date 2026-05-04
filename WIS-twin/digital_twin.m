@@ -40,7 +40,7 @@ log_file_latest = fullfile(LOG_DIR, 'twin_log.csv');
 if ~isfolder(LOG_DIR)
     mkdir(LOG_DIR);
 end
-if isfile(log_file_latest); delete(log_file_latest); end
+try; delete(log_file_latest); catch; end
 
 %% Initialise plots
 if PLOT_LIVE

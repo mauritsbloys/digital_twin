@@ -49,6 +49,7 @@ R_bar = kron(eye(N), R_mpc);
 % QP: min (1/2)*U'*H_qp*U + f_qp'*U
 Y_ref_stack = repmat(y_ref, N, 1);
 H_qp = 2 * (Su' * Q_bar * Su + R_bar);
+H_qp = (H_qp + H_qp') / 2;
 f_qp = 2 * Su' * Q_bar * (Sx * x_hat - Y_ref_stack);
 
 % Input bounds: u_min <= u(k+i) <= u_max for all i
