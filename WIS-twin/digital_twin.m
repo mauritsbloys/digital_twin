@@ -15,8 +15,13 @@ plant_disc = c2d(comb_plant_cont, 1, 'zoh');
 A = plant_disc.A;
 B = plant_disc.B;
 C = plant_disc.C;
-Q_kal = Q_kal_scale * eye(size(A,1));
-R_kal = R_kal_scale * eye(size(C,1));
+if USE_ESTIMATED_QR
+    Q_kal = Q_kal_final;
+    R_kal = R_kal_final;
+else
+    Q_kal = Q_kal_scale * eye(size(A,1));
+    R_kal = R_kal_scale * eye(size(C,1));
+end
 
 %% Initialise Kalman state
 x_hat = zeros(size(A,1), 1);

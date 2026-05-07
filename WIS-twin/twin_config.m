@@ -8,9 +8,16 @@ end
 % Data source
 USE_HARDWARE = false;  % true = Firefly serial, false = internal plant simulator
 
-% Kalman filter noise covariances (scalars — expanded to eye(nx/ny)*scale after model load)
-Q_kal_scale = 1e-4;   % process noise scale
-R_kal_scale = 1e-3;   % measurement noise scale
+% Kalman filter noise covariances — laad data-gedreven schatting indien beschikbaar
+qr_file = fullfile(fileparts(mfilename('fullpath')), 'data', 'Q_R_estimated.mat');
+USE_ESTIMATED_QR = isfile(qr_file);
+if USE_ESTIMATED_QR
+    load(qr_file, 'Q_kal_final', 'R_kal_final');
+else
+    % standaardwaarden totdat schat_Q_R.m is uitgevoerd
+    Q_kal_scale = 1e-4;
+    R_kal_scale = 1e-3;
+end
 
 % MPC parameters
 N      = 10;             % prediction horizon [time steps]

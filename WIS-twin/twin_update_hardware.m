@@ -2,7 +2,7 @@ function twin_update_hardware(y_meas, u_prev, epoch)
 %TWIN_UPDATE_HARDWARE  Called from FireflyCommunicationPSTC callback.
 %   Runs one Kalman+MPC step and logs/plots in hardware mode.
 
-persistent x_hat P u_mpc_prev log_file plt ...
+persistent x_hat P u_mpc_prev log_file log_file_latest plt ...
            t_vec y_hist y_pred_hist innov_hist u_hist K_diag_hist ...
            comb_Pool_disc
 
@@ -27,8 +27,13 @@ end
 
 twin_config;  % reload config each call so tuning changes take effect
 A = comb_Pool_disc.A; B = comb_Pool_disc.B; C = comb_Pool_disc.C;
-Q_kal = Q_kal_scale * eye(size(A,1));
-R_kal = R_kal_scale * eye(size(C,1));
+if USE_ESTIMATED_QR
+    Q_kal = Q_kal_final;
+    R_kal = R_kal_final;
+else
+    Q_kal = Q_kal_scale * eye(size(A,1));
+    R_kal = R_kal_scale * eye(size(C,1));
+end
 
 y_dev = y_meas - y_ref;
 [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_mpc_prev);

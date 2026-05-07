@@ -3,6 +3,16 @@
 % Dit bestand bevat alle commando's om de digital twin en het dashboard
 % op te starten. Kopieer de relevante regels naar de MATLAB Command Window.
 
+%% ── 0. Q/R RUIS-COVARIANTIE SCHATTEN (eenmalig, vóór eerste gebruik) ────
+%
+%  Voer dit eenmalig uit om Q en R te schatten uit echte sensordata.
+%  Vereist: data/data.csv (kolommen: t_s, s1_cm..s7_cm, gates gesloten).
+%  Resultaat wordt opgeslagen in data/Q_R_estimated.mat en automatisch
+%  geladen door twin_config.m bij elke volgende run.
+
+cd(fileparts(which('digital_twin')))
+schat_Q_R
+
 %% ── 1. DIGITAL TWIN (simulator-modus) ───────────────────────────────────
 %
 %  Draait de twin volledig in software: geen hardware nodig.
@@ -17,7 +27,7 @@ digital_twin
 %  Open een terminal (bijv. Windows Terminal of de MATLAB Terminal) en
 %  voer de onderstaande twee regels uit:
 %
-%    cd "C:\Users\mauri\Downloads\BEP\Bas Boot\WIS-twin"
+%    cd(fileparts(which('digital_twin')))
 %    python -m http.server 8080
 %
 %  Open daarna in de browser:
