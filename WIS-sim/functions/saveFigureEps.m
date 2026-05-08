@@ -21,7 +21,7 @@ function [] = saveFigureEps(figureName, fontSize, usePdf)
         
     
    
-    imageLocation = 'C:\Users\mauri\Downloads\BEP\Bas Boot\Figures';
+    imageLocation = 'C:\Users\mauri\Downloads\BEP\Digital Twin\Figures';
 
     if exist(imageLocation, 'dir') 
         % My Latex editor (Texpad) has prblems live typesetting eps, 

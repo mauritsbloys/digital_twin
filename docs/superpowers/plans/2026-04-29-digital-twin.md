@@ -106,7 +106,7 @@ disp('test_twin_kalman: PASSED');
 - [ ] **Step 2: Run test to confirm it fails**
 
 ```matlab
-cd('C:\Users\mauri\Downloads\BEP\Bas Boot\WIS-twin')
+cd('C:\Users\mauri\Downloads\BEP\Digital Twin\WIS-twin')
 test_twin_kalman
 ```
 Expected: error "Undefined function 'twin_kalman_update'"
@@ -438,7 +438,7 @@ end
 - [ ] **Step 2: Smoke test (visual check)**
 
 ```matlab
-cd('C:\Users\mauri\Downloads\BEP\Bas Boot\WIS-twin')
+cd('C:\Users\mauri\Downloads\BEP\Digital Twin\WIS-twin')
 handles = twin_plot_init([0.25; 0.20; 0.15]);
 % Should open a figure with 5 subplots, no errors
 disp('twin_plot_init: OK (visual check)');
@@ -585,7 +585,7 @@ end
 - [ ] **Step 2: Run the simulator for 30 steps, verify no errors**
 
 ```matlab
-cd('C:\Users\mauri\Downloads\BEP\Bas Boot\WIS-twin')
+cd('C:\Users\mauri\Downloads\BEP\Digital Twin\WIS-twin')
 MAX_STEPS_override = 30;   % edit digital_twin.m temporarily
 digital_twin
 ```
@@ -844,7 +844,7 @@ poll();
 - [ ] **Step 2: Start dashboard server and verify**
 
 ```bash
-cd "C:\Users\mauri\Downloads\BEP\Bas Boot\WIS-twin"
+cd "C:\Users\mauri\Downloads\BEP\Digital Twin\WIS-twin"
 python -m http.server 8080
 ```
 

@@ -126,6 +126,7 @@ figcaption { font-size: 9.5pt; color: #555; margin-top: 8px; font-style: italic;
   <li class="sub"><a href="#em-stappen">6.2 Hoe werkt EM stap voor stap</a></li>
   <li class="sub"><a href="#rts">6.3 De Kalman-smoother (RTS)</a></li>
   <li class="sub"><a href="#mstap">6.4 De M-stap: Q en R updaten</a></li>
+  <li class="sub"><a href="#sparse-q">6.4.1 Sparse structuur van Q</a></li>
   <li class="sub"><a href="#code">6.5 MATLAB-implementatie</a></li>
   <li class="ch"><a href="#stap5">7. Stap 5 &mdash; Validatie</a></li>
   <li class="ch"><a href="#stap6">8. Stap 6 &mdash; Inbouwen in de twin</a></li>
@@ -268,8 +269,11 @@ $$y(k) = C\,x(k) + v(k)$$
 
 <p>Hierbij zijn:</p>
 <ul>
-  <li>\(x \in \mathbb{R}^{n_x}\) &mdash; de toestandsvector (het Cantoni-model heeft meer
-      interne toestandsvariabelen dan de drie zichtbare waterstanden)</li>
+  <li>\(x \in \mathbb{R}^{12}\) &mdash; de toestandsvector: het Cantoni-model heeft naast
+      de drie waterstandsafwijkingen ook Pad&eacute;-vertraging- en actuatortoestanden.
+      De <strong>waterstandstoestanden staan op posities 1, 5 en 9</strong>; de overige
+      negen posities zijn interne modeltoestanden die nooit direct worden verstoord
+      door regen, lekken of pompen</li>
   <li>\(y \in \mathbb{R}^3\) &mdash; de drie gemeten waterstandsafwijkingen</li>
   <li>\(u \in \mathbb{R}^3\) &mdash; de drie schuifinputs (nul tijdens dit experiment)</li>
   <li>\(w(k) \sim \mathcal{N}(0, Q)\) &mdash; procesruis, normaal verdeeld met covariantie Q</li>
@@ -649,6 +653,49 @@ $$\boxed{R_\text{nieuw} = \frac{1}{N}\sum_{k=1}^{N}\Bigl[\underbrace{\bigl(y(k) 
   Zonder die correctie zou je R systematisch onderschatten.
 </div>
 
+<h4 id="sparse-q">6.4.1 Sparse structuur van Q: alleen de relevante toestanden</h4>
+
+<p>De algemene M-stap-formule levert een volledige 12&times;12 matrix op. Maar niet alle
+diagonaalelementen zijn zinvol: alleen de drie waterstandstoestanden worden in werkelijkheid
+verstoord door externe invloeden als regen, lekken en pompen. De overige negen toestanden
+zijn interne modeltoestanden die strikt het model volgen.</p>
+
+<table>
+  <tr><th>Positie</th><th>Fysische betekenis</th><th>Externe verstoring?</th></tr>
+  <tr><td><strong>1</strong></td><td>Waterstand pool 1</td><td>Ja &rarr; Q(1,1) zinvol schatten</td></tr>
+  <tr><td>2, 3, 4</td><td>Pad&eacute;-vertraging + actuator pool 1</td><td>Nee &rarr; stel in op 10<sup>&minus;8</sup></td></tr>
+  <tr><td><strong>5</strong></td><td>Waterstand pool 2</td><td>Ja &rarr; Q(5,5) zinvol schatten</td></tr>
+  <tr><td>6, 7, 8</td><td>Pad&eacute;-vertraging + actuator pool 2</td><td>Nee &rarr; stel in op 10<sup>&minus;8</sup></td></tr>
+  <tr><td><strong>9</strong></td><td>Waterstand pool 3</td><td>Ja &rarr; Q(9,9) zinvol schatten</td></tr>
+  <tr><td>10, 11, 12</td><td>Pad&eacute;-vertraging + actuator pool 3</td><td>Nee &rarr; stel in op 10<sup>&minus;8</sup></td></tr>
+</table>
+
+<div class="analogy">
+  <div class="analogy-title">Analogie: een thermostaat met verborgen onderdelen</div>
+  Een slimme thermostaat meet de kamertemperatuur, maar heeft intern ook elektronica
+  voor de vertraging van de verwarming. Als iemand een raam openzet, fluctueert de
+  kamertemperatuur &mdash; maar de interne elektronica niet. Als je voor alle interne
+  onderdelen even veel onzekerheid aanneemt als voor de kamertemperatuur, vertel je het
+  filter iets wat niet waar is. De sparse Q zegt: <em>alleen de kamertemperatuur kan
+  onverwacht veranderen door externe invloeden.</em>
+</div>
+
+<p>In de M-stap berekenen we Q_full zoals altijd, maar passen daarna de sparse structuur toe.
+Dit leidt tot een eenvoudiger formule met slechts drie vrije parameters:</p>
+
+<div class="eq-block">
+$$Q_\text{sparse}(i,i) = \begin{cases}
+    \max\!\bigl(Q_\text{full}(i,i),\; 10^{-8}\bigr) & \text{als } i \in \{1,\,5,\,9\} \\
+    10^{-8} & \text{anders}
+\end{cases}$$
+</div>
+<div class="formula-explain">
+  Dit noemen we een <strong>constrained EM</strong>: de data bepaalt de drie zinvolle
+  parameters, maar de negen interne toestanden worden niet vrij mee-geschat.
+  De vloerwaarde 10<sup>&minus;8</sup> (niet nul) is nodig om de covariatiematrix P
+  numeriek regulier te houden.
+</div>
+
 <div class="page-break"></div>
 
 <h3 id="code">6.5 MATLAB-implementatie</h3>
@@ -697,8 +744,9 @@ end
 end</pre>
 
 <h4>schat_Q_R.m &mdash; hoofdscript</h4>
-<pre>% Beginwaarden
-Q  = 1e-6 * eye(nx);       % start klein: laat de data Q bepalen
+<pre>% Sparse beginwaarden: waterpeilen niet-nul, interne toestanden 1e-8
+Q = 1e-8 * eye(nx);
+Q(1,1) = 1e-6;  Q(5,5) = 1e-6;  Q(9,9) = 1e-6;
 R  = R_est;                % beginwaarde uit Stap 3
 x0 = pinv(C) * y(:,1);    % schat begintoestand uit eerste meting
 P0 = eye(nx);              % grote beginonzekerheid (we weten x0 niet precies)
@@ -714,9 +762,12 @@ for iter = 1:30
         S10 = S10 + Pcs(:,:,k-1) + xs(:,k)   * xs(:,k-1)';
         S00 = S00 + Ps(:,:,k-1)  + xs(:,k-1) * xs(:,k-1)';
     end
-    Q = (S11 - S10*A' - A*S10' + A*S00*A') / (N-1);
-    Q = (Q + Q') / 2;            % symmetrie herstellen (afrondingsfouten)
-    Q = Q + 1e-10 * eye(nx);     % kleine regularisering: voorkomt singulariteit
+    Q_full = (S11 - S10*A' - A*S10' + A*S00*A') / (N-1);
+    % Sparse structuur: alleen waterstandstoestanden updaten
+    Q = 1e-8 * eye(nx);
+    for i = [1, 5, 9]
+        Q(i,i) = max(Q_full(i,i), 1e-8);
+    end
 
     % M-stap: bereken nieuwe R
     R_new = zeros(ny);

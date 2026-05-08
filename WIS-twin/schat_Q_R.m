@@ -40,7 +40,10 @@ fprintf('R schatting uit stationair segment (m^2):\n');
 disp(R_est)
 
 %% Stap 4: EM-algoritme (Shumway & Stoffer 1982)
-Q  = 1e-6 * eye(nx);       % start klein: laat de data Q bepalen
+% Sparse beginwaarden: alleen waterstandstoestanden (posities 1, 5, 9) niet-nul.
+% Padé- en actuatortoestanden (2-4, 6-8, 10-12) krijgen 1e-8 als vloerwaarde.
+Q = 1e-8 * eye(nx);
+Q(1,1) = 1e-6;  Q(5,5) = 1e-6;  Q(9,9) = 1e-6;
 R  = R_est;                % beginwaarde uit Stap 3
 x0 = pinv(C) * y(:,1);    % schat begintoestand uit eerste meting
 P0 = eye(nx);              % grote beginonzekerheid
@@ -57,9 +60,12 @@ for iter = 1:30
         S10 = S10 + Pcs(:,:,k-1) + xs(:,k)   * xs(:,k-1)';
         S00 = S00 + Ps(:,:,k-1)  + xs(:,k-1) * xs(:,k-1)';
     end
-    Q = (S11 - S10*A' - A*S10' + A*S00*A') / (N-1);
-    Q = (Q + Q') / 2;            % symmetrie herstellen (afrondingsfouten)
-    Q = Q + 1e-10 * eye(nx);     % kleine regularisering: voorkomt singulariteit
+    Q_full = (S11 - S10*A' - A*S10' + A*S00*A') / (N-1);
+    % Sparse structuur afdwingen: neem alleen waterstandstoestanden over
+    Q = 1e-8 * eye(nx);
+    for i = [1, 5, 9]
+        Q(i,i) = max(Q_full(i,i), 1e-8);
+    end
 
     % M-stap: update R (diagonaal houden — sensoren zijn onafhankelijk)
     R_new = zeros(ny);
