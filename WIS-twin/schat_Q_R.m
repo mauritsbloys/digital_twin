@@ -1,21 +1,28 @@
-%% schat_Q_R.m — EM-schatting van Kalman ruis-covarianties Q en R
+%% schat_Q_R.m — Schatting van Kalman ruis-covarianties Q en R
 %
-% Uitvoer: data/Q_R_estimated.mat met variabelen Q_kal_final en R_kal_final.
-% Voer dit script uit vanuit de WIS-twin map (of via STARTEN.m).
+% R: data-gedreven uit hoog-frequente sensorresiduen (movmean trendverwijdering)
+% Q: fysisch gemotiveerd uit gemeten lekkagesnelheid per bassin
+%
+% Invoer: METING_FILE hieronder (kolommen: t_s, s1..s7 in cm)
+% Uitvoer: data/Q_R_estimated.mat
 
 base = fileparts(mfilename('fullpath'));
-addpath(base);   % zorg dat kalman_smoother.m gevonden wordt
+addpath(base);
 
-%% Stap 1: Data laden en resamplen naar 1 Hz
-raw   = readmatrix(fullfile(base, 'data', 'data.csv'));
+%% Configuratie — pas aan bij nieuwe meting
+METING_FILE = fullfile(base, 'data', 'meting_20260513_143530.csv');
+
+%% Stap 1: Data laden
+% Waterstandsensoren: kolommen 3, 5, 7 (s2, s4, s6) → omzetten naar [m]
+raw   = readmatrix(METING_FILE);
 t_raw = raw(:, 1);
-y_raw = raw(:, [3, 5, 7]) / 100;      % kolommen s2, s4, s6 — omgezet naar [m]
+y_raw = raw(:, [3, 5, 7]) / 100;
 
-t_1hz = (0 : floor(t_raw(end)))';     % uniforme tijdas: 0, 1, 2, ... seconden
-y     = interp1(t_raw, y_raw, t_1hz, 'linear')';   % resultaat: 3 x N matrix
+t_1hz = (0 : floor(t_raw(end)))';
+y     = interp1(t_raw, y_raw, t_1hz, 'linear')';   % 3 x N
 N     = size(y, 2);
 
-fprintf('Data geladen: %d tijdstappen na resamplen naar 1 Hz\n', N);
+fprintf('Data geladen: %d tijdstappen (%.0f seconden)\n', N, t_1hz(end));
 
 %% Stap 2: Plantmodel laden en discretiseren op 1 Hz
 load(fullfile(base, '..', 'WIS-sim', 'simulation', 'distributed_workspace.mat'), ...
@@ -28,69 +35,49 @@ ny = size(C, 1);
 
 fprintf('Plant geladen: nx = %d, ny = %d\n', nx, ny);
 
-%% Stap 3: R schatten uit het stationaire segment (t > 500 s)
-win    = 51;                           % vensterlengte: 51 samples = 51 seconden
-trend  = movmean(y, win, 2);           % schat de langzame trend per kanaal
-resid  = y - trend;                    % residu = hoog-frequente ruis
+%% Stap 3: R schatten uit hoog-frequente sensorresiduen
+% Verwijder langzame trend (lekkage, drift) met bewegend gemiddelde
+% Wat overblijft is puur meetruis → variantie daarvan is R
+win   = min(51, floor(N/4)*2 + 1);   % vensterlengte past zich aan N aan
+trend = movmean(y, win, 2);
+resid = y - trend;
 
-idx_ss = find(t_1hz >= 500);
-R_est  = diag(var(resid(:, idx_ss), 0, 2));
+R_est = diag(var(resid, 0, 2));
+fprintf('\nR schatting uit sensorresiduen (m^2):\n');
+fprintf('  y1: %.3e\n  y2: %.3e\n  y3: %.3e\n', R_est(1,1), R_est(2,2), R_est(3,3));
 
-fprintf('R schatting uit stationair segment (m^2):\n');
-disp(R_est)
+%% Stap 4: Q fysisch schatten uit gemeten lekkagesnelheid
+% Lekkagesnelheid = gemiddelde daling per kanaal over de volledige meting
+lek_ms = abs(y(:,1) - y(:,end)) / t_1hz(end);   % [m/s]
+fprintf('\nGemeten lekkagesnelheid per bassin [mm/s]:\n');
+fprintf('  Bassin 1: %.4f\n  Bassin 2: %.4f\n  Bassin 3: %.4f\n', lek_ms*1000);
 
-%% Stap 4: EM-algoritme (Shumway & Stoffer 1982)
-% Sparse beginwaarden: alleen waterstandstoestanden (posities 1, 5, 9) niet-nul.
-% Padé- en actuatortoestanden (2-4, 6-8, 10-12) krijgen 1e-8 als vloerwaarde.
-Q = 1e-8 * eye(nx);
-Q(1,1) = 1e-6;  Q(5,5) = 1e-6;  Q(9,9) = 1e-6;
-R  = R_est;                % beginwaarde uit Stap 3
-x0 = pinv(C) * y(:,1);    % schat begintoestand uit eerste meting
-P0 = eye(nx);              % grote beginonzekerheid
-
-fprintf('\nEM-iteraties starten...\n');
-for iter = 1:30
-    % E-stap: schat volledige toestandsgeschiedenis met alle metingen
-    [xs, Ps, Pcs] = kalman_smoother(A, C, Q, R, y, x0, P0);
-
-    % M-stap: update Q
-    S11 = zeros(nx);  S10 = zeros(nx);  S00 = zeros(nx);
-    for k = 2:N
-        S11 = S11 + Ps(:,:,k)    + xs(:,k)   * xs(:,k)';
-        S10 = S10 + Pcs(:,:,k-1) + xs(:,k)   * xs(:,k-1)';
-        S00 = S00 + Ps(:,:,k-1)  + xs(:,k-1) * xs(:,k-1)';
-    end
-    Q_full = (S11 - S10*A' - A*S10' + A*S00*A') / (N-1);
-    % Sparse structuur afdwingen: neem alleen waterstandstoestanden over
-    Q = 1e-8 * eye(nx);
-    for i = [1, 5, 9]
-        Q(i,i) = max(Q_full(i,i), 1e-8);
-    end
-
-    % M-stap: update R (diagonaal houden — sensoren zijn onafhankelijk)
-    R_new = zeros(ny);
-    for k = 1:N
-        e     = y(:,k) - C * xs(:,k);
-        R_new = R_new + e*e' + C*Ps(:,:,k)*C';
-    end
-    R = diag(diag(R_new / N));
-
-    fprintf('  Iteratie %2d voltooid\n', iter);
+% Q[i,i] = (lekkage per tijdstap)^2 — procesruis door onzekerheid in lekkagesnelheid
+% Dit is een conservatieve bovengrens: het Kalman-filter krijgt genoeg speling
+% om de werkelijke waterstand bij te houden ondanks niet-gemodelleerde lekkage
+q_vals       = (lek_ms * 1).^2;   % dt = 1 s
+Q_est        = 1e-8 * eye(nx);
+water_states = [1, 5, 9];
+for j = 1:3
+    Q_est(water_states(j), water_states(j)) = max(q_vals(j), 1e-8);
 end
+fprintf('\nQ waterstandsdiagonaal (m^2):\n');
+fprintf('  Q(1,1): %.3e\n  Q(5,5): %.3e\n  Q(9,9): %.3e\n', ...
+        Q_est(1,1), Q_est(5,5), Q_est(9,9));
 
-Q_kal_final = Q;
-R_kal_final = R;
-
-%% Stap 5: Resultaat opslaan
+%% Stap 5: Opslaan
+Q_kal_final = Q_est;
+R_kal_final = R_est;
 out_file = fullfile(base, 'data', 'Q_R_estimated.mat');
 save(out_file, 'Q_kal_final', 'R_kal_final');
-fprintf('\nResultaat opgeslagen in %s\n', out_file);
-fprintf('R_kal_final diagonaal (m^2): [%.3e  %.3e  %.3e]\n', ...
-        R_kal_final(1,1), R_kal_final(2,2), R_kal_final(3,3));
+fprintf('\nOpgeslagen in %s\n', out_file);
 
 %% Stap 6: Validatie — witheidstoets op innovaties
+% Voer Kalman-filter voorwaarts uit met geschatte Q en R
+% Als innovaties wit zijn → Q en R consistent met de data
 innov = zeros(ny, N);
-x_hat = x0;  P = P0;
+x_hat = pinv(C) * y(:, 1);
+P     = eye(nx);
 for k = 1:N
     x_prior    = A * x_hat;
     P_prior    = A * P * A' + Q_kal_final;
@@ -105,10 +92,9 @@ end
 figure('Name', 'Innovatie witheidstoets');
 for i = 1:3
     subplot(3,1,i)
-    autocorr(innov(i,:), 'NumLags', 30)
+    autocorr(innov(i,:), 'NumLags', min(30, floor(N/4)));
     title(sprintf('Innovatie autocorrelatie — sensor y%d', i))
     grid on
 end
-
-fprintf('\nValidatie: controleer of alle ACF-pieken (lag >= 1) binnen de blauwe band vallen.\n');
-fprintf('Zo ja: Q en R zijn correct. Ga door naar Stap 6 (twin_config.m updaten).\n');
+fprintf('\nValidatie: ACF-pieken bij lag >= 1 moeten binnen de blauwe band vallen.\n');
+fprintf('Let op: bij aanwezige lekkage zijn grote pieken bij lage lags verwacht.\n');

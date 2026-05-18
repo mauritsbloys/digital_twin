@@ -7,6 +7,7 @@ end
 
 % Data source
 USE_HARDWARE = false;  % true = Firefly serial, false = internal plant simulator
+COM_PORT     = 'COM3'; % seriële poort Firefly (alleen relevant bij USE_HARDWARE = true)
 
 % Kalman filter noise covariances — laad data-gedreven schatting indien beschikbaar
 qr_file = fullfile(fileparts(mfilename('fullpath')), 'data', 'Q_R_estimated.mat');
