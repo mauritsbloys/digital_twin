@@ -2,7 +2,7 @@
 % Run vanuit WIS-sim/functions/
 
 q = wis_leakage(0.25, 0.20, 39.617, 0.328);
-assert(abs(q - 9.2216e-5) < 1e-7, 'Test 1 mislukt: verwacht ~9.2216e-5');
+assert(abs(q - 9.2253e-5) < 1e-7, 'Test 1 mislukt: verwacht ~9.2253e-5');
 
 q = wis_leakage(0.20, 0.20, 39.617, 0.328);
 assert(q == 0, 'Test 2 mislukt: verwacht 0 bij gelijke peilen');

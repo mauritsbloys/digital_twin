@@ -1,5 +1,6 @@
 function q_m3s = wis_leakage(h1_m, h2_m, alpha, beta)
 % wis_leakage  Bereken lekkageflow door een gesloten sluis.
+%   q_m3s = wis_leakage(h1_m, h2_m, alpha, beta)
 %   h1_m, h2_m : waterpeilen [m]; alpha, beta : empirische constanten
 %   q_m3s : lekkageflow [m3/s], altijd >= 0
 
