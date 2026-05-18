@@ -21,12 +21,15 @@ else
 end
 
 % MPC parameters
-N      = 10;             % prediction horizon [time steps]
-Q_mpc  = 10  * eye(3);   % weight on setpoint deviation
-R_mpc  = 0.1 * eye(3);   % weight on control effort
-du_max = 20;             % max gate change per time step [servo units]
-u_min  = zeros(3,1);     % lower bound on gate opening
-u_max  = 255 * ones(3,1); % upper bound on gate opening
+% Noot: de plant-input u is het Cantoni regelaarsignaal, NIET servo-eenheden.
+% Sluispositietoestand_ss = kappa*phi*u = 3*u, dus u=0.33 → volledig open.
+% Bounds zijn bepaald op basis van Cantoni actuatordynamica (kappa=0.3, phi=10).
+N      = 10;             % prediction horizon [tijdstappen]
+Q_mpc  = 10  * eye(3);   % weging op setpuntafwijking
+R_mpc  = 0.1 * eye(3);   % weging op regelmoeite
+du_max = 0.05;           % max regelaarverandering per stap [Cantoni signaaleenheden]
+u_min  = zeros(3,1);     % ondergrens (sluis dicht)
+u_max  = 0.5 * ones(3,1); % bovengrens (~volledig open in Cantoni signaalruimte)
 
 % Setpoints [m]
 y_ref = [0.25; 0.20; 0.15];

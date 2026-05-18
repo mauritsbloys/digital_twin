@@ -87,8 +87,10 @@ while step < MAX_STEPS
         if numel(parts) ~= 13
             continue;
         end
-        epoch     = str2double(parts(1));
-        y_meas    = [str2double(parts(7)); str2double(parts(8)); str2double(parts(9))] / 1e6;
+        epoch    = str2double(parts(1));
+        % Cantoni regelaaroutput die de Firefly heeft toegepast (parts 3-5, /1000)
+        u_actual = [str2double(parts(3)); str2double(parts(4)); str2double(parts(5))] / 1000;
+        y_meas   = [str2double(parts(7)); str2double(parts(8)); str2double(parts(9))] / 1e6;
         triggered = str2double(parts(13));
     else
         epoch      = epoch + 1;
@@ -105,10 +107,17 @@ while step < MAX_STEPS
     step = step + 1;
 
     %% 2. Kalman filter update
+    % In hardware-modus: gebruik de échte Cantoni-output die de Firefly heeft
+    % toegepast (u_actual); in simulator-modus: gebruik de MPC-output (u_prev).
+    if USE_HARDWARE
+        u_kal = u_actual;
+    else
+        u_kal = u_prev;
+    end
     y_dev   = y_meas - y_ref;
     h_est   = C * x_hat + y_ref;
     d_leak  = twin_compute_leakage(h_est, Wis, wl_idx, size(A,1));
-    [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_prev, d_leak);
+    [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_kal, d_leak);
 
     %% 3. MPC
     u_mpc  = twin_mpc_solve(A, B, C, x_hat, zeros(size(C,1),1), Q_mpc, R_mpc, N, du_max, u_min, u_max, u_prev);
