@@ -1,4 +1,4 @@
-function [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_meas, u)
+function [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_meas, u, d_leak)
 %TWIN_KALMAN_UPDATE  One predict+update step of the discrete Kalman filter.
 %
 %   Inputs:
@@ -9,14 +9,19 @@ function [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P,
 %     P        — prior error covariance matrix
 %     y_meas   — current measurement (column vector)
 %     u        — current control input (column vector)
+%     d_leak   — (optional) leakage correction vector [m per tijdstap]
 %
 %   Outputs:
 %     x_hat    — updated state estimate
 %     P        — updated error covariance
 %     innov    — innovation (pre-correction residual)
 
+if nargin < 10
+    d_leak = zeros(size(A, 1), 1);
+end
+
 % Predict
-x_prior = A * x_hat + B * u;
+x_prior = A * x_hat + B * u + d_leak;
 P_prior = A * P * A' + Q_kal;
 
 % Innovation

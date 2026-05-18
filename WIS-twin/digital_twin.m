@@ -14,6 +14,9 @@ plant_disc = c2d(comb_plant_cont, 1, 'zoh');
 A = plant_disc.A;
 B = plant_disc.B;
 C = plant_disc.C;
+
+% Bepaal welke toestanden de waterpeilen zijn (via C-matrix)
+wl_idx = arrayfun(@(i) find(abs(C(i,:)) > 0.5, 1), 1:3)';
 if USE_ESTIMATED_QR
     Q_kal = Q_kal_final;
     R_kal = R_kal_final;
@@ -88,30 +91,36 @@ while step < MAX_STEPS
         y_meas    = [str2double(parts(7)); str2double(parts(8)); str2double(parts(9))] / 1e6;
         triggered = str2double(parts(13));
     else
-        epoch   = epoch + 1;
-        d       = zeros(size(A,1), 1);
+        epoch      = epoch + 1;
+        h_sim      = C * x_plant + y_ref;
+        d_leak_sim = twin_compute_leakage(h_sim, Wis, wl_idx, size(A,1));
+        d_ext      = zeros(size(A,1), 1);
         if epoch >= DISTURBANCE_EPOCH
-            d(1) = disturbance(1);
+            d_ext(wl_idx(1)) = disturbance(1);
         end
-        x_plant   = A * x_plant + B * u_prev + d;
+        x_plant   = A * x_plant + B * u_prev + d_leak_sim + d_ext;
         y_meas    = C * x_plant + y_ref;
         triggered = 1;
     end
     step = step + 1;
 
     %% 2. Kalman filter update
-    y_dev = y_meas - y_ref;
-    [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_prev);
+    y_dev   = y_meas - y_ref;
+    h_est   = C * x_hat + y_ref;
+    d_leak  = twin_compute_leakage(h_est, Wis, wl_idx, size(A,1));
+    [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_prev, d_leak);
 
     %% 3. MPC
     u_mpc  = twin_mpc_solve(A, B, C, x_hat, zeros(size(C,1),1), Q_mpc, R_mpc, N, du_max, u_min, u_max, u_prev);
     u_prev = u_mpc;
 
-    %% 4. MPC predicted trajectory for plotting
+    %% 4. MPC predicted trajectory for plotting (inclusief lekkage)
     mpc_traj = zeros(3, N);
     x_tmp = x_hat;
     for i = 1:N
-        x_tmp        = A * x_tmp + B * u_mpc;
+        h_tmp         = C * x_tmp + y_ref;
+        d_mpc         = twin_compute_leakage(h_tmp, Wis, wl_idx, size(A,1));
+        x_tmp         = A * x_tmp + B * u_mpc + d_mpc;
         mpc_traj(:,i) = C * x_tmp + y_ref;
     end
 

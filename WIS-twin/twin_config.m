@@ -40,9 +40,12 @@ PLOT_LIVE = true;
 WEB_DASH  = true;
 
 % Add WIS-sim modules to path (guarded against duplicates)
-for sub_dir = {'../WIS-sim/simulation', '../WIS-sim/functions', '../WIS-sim/functions_jacob'}
+for sub_dir = {'../WIS-sim/simulation', '../WIS-sim/functions', '../WIS-sim/functions_jacob', '../WIS-sim/identification'}
     p = fullfile(fileparts(mfilename('fullpath')), sub_dir{1});
     if ~contains(path, p)
         addpath(p);
     end
 end
+
+% Laad lab-eigenschappen (bassindimensies en lekkageparameters → Wis struct)
+wis_properties;

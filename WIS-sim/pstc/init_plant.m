@@ -90,6 +90,33 @@ Bc = [-0.0790510230572318 0 0;0 0 0;0 -0.139918052332527 0;0 0 0;0 0 -0.40216211
 Cc = [0.426775147928994 -0.426005917159763 0 0 0 0;0 0 0.71129191321499 -0.710009861932939 0 0;0 0 0 0 0.426775147928994 -0.426005917159763];
 Dc = [-0.0182577459022568 0 0;0 -0.053859481042104 0;0 0 -0.092883981758065];
 
+% Lineariseer lekkage rond setpoints y_ref = [0.25; 0.20; 0.15] m
+% en voeg koppelingstermen toe aan Ap (nog in eenheden van 1/min).
+%
+% Lekkagestromen: q1: pool0→1 (alpha=39.617), q2: 1→2 (alpha=9.402), q3: 2→3 (alpha=40.310)
+% Hoeveelheidsafgeleiden: dq/d(dh_cm) = alpha/(2*sqrt(dh_cm)) + beta*(3/2)*sqrt(dh_cm)
+% Omrekening naar SI: k_SI [m^2/s] = k [cm^2/s] / 1e4
+% Effect op Ap [1/min] = k_SI / area * 60
+h_ref = [0.25; 0.20; 0.15];  h0 = 0.30;
+dh = [(h0-h_ref(1)); (h_ref(1)-h_ref(2)); (h_ref(2)-h_ref(3))] * 100;  % [cm]
+lk_a = [39.617, 9.402, 40.310];
+lk_b = [0.328,  0.162,  0.559];
+k_SI = zeros(3,1);
+for ii = 1:3
+    slope = lk_a(ii)/(2*sqrt(dh(ii))) + lk_b(ii)*(3/2)*sqrt(dh(ii));  % [cm^2/s]
+    k_SI(ii) = slope / 1e4;  % [m^2/s]
+end
+A1 = 0.1853; A2 = 0.1187; A3 = 0.2279;  % bassindimensies [m^2]
+% Toestanden: y1=1, delta1=2, y2=3, delta2=4, y3=5, delta3=6
+Ap(1,1) = Ap(1,1) + (-k_SI(1) - k_SI(2)) / A1 * 60;
+Ap(1,3) = Ap(1,3) +   k_SI(2)             / A1 * 60;
+Ap(3,1) = Ap(3,1) +   k_SI(2)             / A2 * 60;
+Ap(3,3) = Ap(3,3) + (-k_SI(2) - k_SI(3)) / A2 * 60;
+Ap(3,5) = Ap(3,5) +   k_SI(3)             / A2 * 60;
+Ap(5,3) = Ap(5,3) +   k_SI(3)             / A3 * 60;
+Ap(5,5) = Ap(5,5) +  -k_SI(3)             / A3 * 60;
+clear h_ref h0 dh lk_a lk_b k_SI A1 A2 A3 ii slope
+
 % Put time scale to seconds (for conditioning)
 Ap = Ap/60;
 Bp = Bp/60;
