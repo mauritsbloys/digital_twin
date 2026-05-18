@@ -2,13 +2,16 @@
 % over an undershot gate from a desired flow and the water levels
 % and rateb limit of the gate
 
-function [flow, next_gate] = gate_simulation(flow_request, h1, h2, current_gate)
+function [flow, next_gate] = gate_simulation(flow_request, h1, h2, current_gate, alpha, beta)
 % flow_request requested flow (m^3/s)
 % h1, h2 water level before and after gate (m)
 % current_gate setting (0-255)
-
+% alpha, beta leakage parameters (optional, default 0)
+%
 % flow actual flow (m^3/s)
 % next_gate (0-255)
+
+if nargin < 6, alpha = 0; beta = 0; end
 
 % Increased this to effectively disble the rate limit 
 max_step = 20000*255/(7*1); % rate limit based on sample time 
@@ -67,7 +70,7 @@ next_gate = temp_servo;
 
 % later: rate limit gate
 
-% later: lekkage toevoegen
+flow = flow + wis_leakage(h1, h2, alpha, beta);
 
 %flow = 4.43 * 10^-4;
 %flow = 0.2279; % this flow will bring last pool to 1m in 60 steps
