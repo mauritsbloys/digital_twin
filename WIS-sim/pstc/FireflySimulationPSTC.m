@@ -467,6 +467,15 @@ classdef FireflySimulationPSTC < handle
                     % Update plant state, disturbance starts after 20 secs
                     for j = 1:SPS+timingProblem
                         xp = Apd*xp + Bpd*uhat/1000 + Epd * (kk*obj.h >= 20);
+
+                        dt_sub = obj.h / SPS;
+                        h0_val = obj.Wis.h0;
+                        q1 = wis_leakage(h0_val,  xp(1), obj.Wis.leak_alpha(1), obj.Wis.leak_beta(1));
+                        q2 = wis_leakage(xp(1),   xp(3), obj.Wis.leak_alpha(2), obj.Wis.leak_beta(2));
+                        q3 = wis_leakage(xp(3),   xp(5), obj.Wis.leak_alpha(3), obj.Wis.leak_beta(3));
+                        xp(1) = xp(1) + (q1 - q2) * dt_sub / obj.Wis.area1;
+                        xp(3) = xp(3) + (q2 - q3) * dt_sub / obj.Wis.area2;
+                        xp(5) = xp(5) + q3        * dt_sub / obj.Wis.area3;
                     end
                     
                     yd = Cpd*xp; % HIL sim has no noise + noises(:, kk+1)*2/1000;

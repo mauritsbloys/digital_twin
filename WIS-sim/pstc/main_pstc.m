@@ -1,4 +1,5 @@
 % init pstc
+addpath(fullfile(fileparts(mfilename('fullpath')), '../functions'));
 
 %% init
 clear all; % TODO: only clear controller?
