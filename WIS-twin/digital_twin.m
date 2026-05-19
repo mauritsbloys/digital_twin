@@ -20,10 +20,24 @@ wl_idx = arrayfun(@(i) find(abs(C(i,:)) > 0.5, 1), 1:3)';
 if USE_ESTIMATED_QR
     Q_kal = Q_kal_final;
     R_kal = R_kal_final;
+    % Normaliseer Q: zorg dat alle drie waterstandstoestanden dezelfde Q/R
+    % verhouding krijgen (geometrisch gemiddelde). Voorkomt dat Kalman gain
+    % voor pool 3 naar nul daalt terwijl pool 1 gain hoog blijft.
+    ratios  = [Q_kal(1,1)/R_kal(1,1), Q_kal(5,5)/R_kal(2,2), Q_kal(9,9)/R_kal(3,3)];
+    q_r_gem = (prod(ratios))^(1/3);   % geometrisch gemiddelde
+    Q_kal(1,1) = q_r_gem * R_kal(1,1);
+    Q_kal(5,5) = q_r_gem * R_kal(2,2);
+    Q_kal(9,9) = q_r_gem * R_kal(3,3);
 else
     Q_kal = Q_kal_scale * eye(size(A,1));
     R_kal = R_kal_scale * eye(size(C,1));
 end
+
+%% Nominale lekkage bij setpoints
+% Bij x_plant=0 geldt y_meas=y_ref. De lekkage op dat punt is niet nul,
+% waardoor pool 3 langzaam vult (geen uitstroom in het model). Door de
+% nominale lekkage af te trekken behandelen we x=0 als het ware evenwicht.
+d_leak_nom = twin_compute_leakage(y_ref, Wis, wl_idx, size(A,1));
 
 %% Initialise Kalman state
 x_hat = zeros(size(A,1), 1);
@@ -34,6 +48,7 @@ u_prev = zeros(size(B,2), 1);
 
 %% Initialise simulator plant state (only used when USE_HARDWARE = false)
 x_plant           = zeros(size(A,1), 1);
+x_plant_nompc     = zeros(size(A,1), 1);   % parallel simulatie zonder regeling
 DISTURBANCE_EPOCH = 20;
 disturbance       = [-0.015; 0; 0];
 
@@ -51,16 +66,17 @@ try; delete(log_file_latest); catch; end
 
 %% Initialise plots
 if PLOT_LIVE
-    plt = twin_plot_init(y_ref, N);
+    plt = twin_plot_init(y_ref, N, DISTURBANCE_EPOCH);
 end
 
 %% History buffers (preallocated to MAX_STEPS)
-t_vec       = zeros(1, MAX_STEPS);
-y_hist      = zeros(3, MAX_STEPS);
-y_pred_hist = zeros(3, MAX_STEPS);
-innov_hist  = zeros(3, MAX_STEPS);
-u_hist      = zeros(3, MAX_STEPS);
-K_diag_hist = zeros(3, MAX_STEPS);
+t_vec          = zeros(1, MAX_STEPS);
+y_hist         = zeros(3, MAX_STEPS);
+y_pred_hist    = zeros(3, MAX_STEPS);
+innov_hist     = zeros(3, MAX_STEPS);
+u_hist         = zeros(3, MAX_STEPS);
+K_diag_hist    = zeros(3, MAX_STEPS);
+y_nompc_hist   = nan(3,  MAX_STEPS);
 
 %% Open serial connection for hardware mode
 if USE_HARDWARE
@@ -92,17 +108,32 @@ while step < MAX_STEPS
         u_actual = [str2double(parts(3)); str2double(parts(4)); str2double(parts(5))] / 1000;
         y_meas   = [str2double(parts(7)); str2double(parts(8)); str2double(parts(9))] / 1e6;
         triggered = str2double(parts(13));
+        y_nompc   = nan(3,1);   % geen parallelle simulatie in hardware-modus
     else
         epoch      = epoch + 1;
         h_sim      = C * x_plant + y_ref;
-        d_leak_sim = twin_compute_leakage(h_sim, Wis, wl_idx, size(A,1));
+        d_leak_sim = twin_compute_leakage(h_sim, Wis, wl_idx, size(A,1)) - d_leak_nom;
         d_ext      = zeros(size(A,1), 1);
         if epoch >= DISTURBANCE_EPOCH
             d_ext(wl_idx(1)) = disturbance(1);
         end
         x_plant   = A * x_plant + B * u_prev + d_leak_sim + d_ext;
+        % Waterpeil kan fysisch niet negatief worden
+        for ii = 1:3
+            x_plant(wl_idx(ii)) = max(x_plant(wl_idx(ii)), -y_ref(ii));
+        end
         y_meas    = C * x_plant + y_ref;
         triggered = 1;
+
+        % Parallelle simulatie zonder regeling (u=0), zelfde stoornis
+        h_nompc        = C * x_plant_nompc + y_ref;
+        d_leak_nompc   = twin_compute_leakage(h_nompc, Wis, wl_idx, size(A,1)) - d_leak_nom;
+        x_plant_nompc  = A * x_plant_nompc + d_leak_nompc + d_ext;
+        % Waterpeil kan fysisch niet negatief worden
+        for ii = 1:3
+            x_plant_nompc(wl_idx(ii)) = max(x_plant_nompc(wl_idx(ii)), -y_ref(ii));
+        end
+        y_nompc        = C * x_plant_nompc + y_ref;
     end
     step = step + 1;
 
@@ -116,7 +147,7 @@ while step < MAX_STEPS
     end
     y_dev   = y_meas - y_ref;
     h_est   = C * x_hat + y_ref;
-    d_leak  = twin_compute_leakage(h_est, Wis, wl_idx, size(A,1));
+    d_leak  = twin_compute_leakage(h_est, Wis, wl_idx, size(A,1)) - d_leak_nom;
     [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_kal, d_leak);
 
     %% 3. MPC
@@ -128,29 +159,30 @@ while step < MAX_STEPS
     x_tmp = x_hat;
     for i = 1:N
         h_tmp         = C * x_tmp + y_ref;
-        d_mpc         = twin_compute_leakage(h_tmp, Wis, wl_idx, size(A,1));
+        d_mpc         = twin_compute_leakage(h_tmp, Wis, wl_idx, size(A,1)) - d_leak_nom;
         x_tmp         = A * x_tmp + B * u_mpc + d_mpc;
         mpc_traj(:,i) = C * x_tmp + y_ref;
     end
 
     %% 5. Log
     y_pred = C * x_hat + y_ref;
-    twin_log_write(log_file,        epoch, y_meas, y_pred, innov, u_mpc, triggered);
-    twin_log_write(log_file_latest, epoch, y_meas, y_pred, innov, u_mpc, triggered);
+    twin_log_write(log_file,        epoch, y_meas, y_pred, innov, u_mpc, triggered, y_nompc);
+    twin_log_write(log_file_latest, epoch, y_meas, y_pred, innov, u_mpc, triggered, y_nompc);
 
     %% 6. Update history and plot
-    t_vec(:,step)       = epoch;
-    y_hist(:,step)      = y_meas;
-    y_pred_hist(:,step) = y_pred;
-    innov_hist(:,step)  = innov;
-    u_hist(:,step)      = u_mpc;
+    t_vec(:,step)          = epoch;
+    y_hist(:,step)         = y_meas;
+    y_pred_hist(:,step)    = y_pred;
+    innov_hist(:,step)     = innov;
+    u_hist(:,step)         = u_mpc;
+    y_nompc_hist(:,step)   = y_nompc;
     K_gain              = (P * C') / (C * P * C' + R_kal);
-    K_diag_hist(:,step) = diag(K_gain(1:3,:));
+    K_diag_hist(:,step) = [K_gain(wl_idx(1),1); K_gain(wl_idx(2),2); K_gain(wl_idx(3),3)];
 
     if PLOT_LIVE
         twin_plot_update(plt, t_vec(:,1:step), y_hist(:,1:step), y_pred_hist(:,1:step), ...
                          innov_hist(:,1:step), u_hist(:,1:step), K_diag_hist(:,1:step), ...
-                         mpc_traj, y_ref);
+                         mpc_traj, y_ref, y_nompc_hist(:,1:step));
     end
 
     pause(H_LOOP);

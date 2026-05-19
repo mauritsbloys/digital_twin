@@ -62,7 +62,7 @@
     <!-- 3: MPC control -->
     <div class="card">
       <p class="card-title">MPC-stuurcommando per stuw</p>
-      <p class="card-sub">Eenheden: servo-waarde [0–255] &nbsp;|&nbsp; Berekend door de MPC-regelaar op basis van Kalman-schatting</p>
+      <p class="card-sub">Eenheden: Cantoni signaalwaarde [0–0.5] &nbsp;|&nbsp; Berekend door de MPC-regelaar op basis van Kalman-schatting</p>
       <canvas id="ch-umpc"></canvas>
     </div>
 
@@ -75,9 +75,9 @@
         <div class="stat-box"><div class="stat-label">Peil pool 1</div><div class="stat-val" id="s-y1">—</div><div class="stat-unit">m</div><div class="stat-sub" id="s-y1-ref"></div></div>
         <div class="stat-box"><div class="stat-label">Peil pool 2</div><div class="stat-val" id="s-y2">—</div><div class="stat-unit">m</div><div class="stat-sub" id="s-y2-ref"></div></div>
         <div class="stat-box"><div class="stat-label">Peil pool 3</div><div class="stat-val" id="s-y3">—</div><div class="stat-unit">m</div><div class="stat-sub" id="s-y3-ref"></div></div>
-        <div class="stat-box"><div class="stat-label">Stuw u1</div><div class="stat-val" id="s-u1">—</div><div class="stat-unit">servo</div></div>
-        <div class="stat-box"><div class="stat-label">Stuw u2</div><div class="stat-val" id="s-u2">—</div><div class="stat-unit">servo</div></div>
-        <div class="stat-box"><div class="stat-label">Stuw u3</div><div class="stat-val" id="s-u3">—</div><div class="stat-unit">servo</div></div>
+        <div class="stat-box"><div class="stat-label">Stuw u1</div><div class="stat-val" id="s-u1">—</div><div class="stat-unit">Cantoni</div></div>
+        <div class="stat-box"><div class="stat-label">Stuw u2</div><div class="stat-val" id="s-u2">—</div><div class="stat-unit">Cantoni</div></div>
+        <div class="stat-box"><div class="stat-label">Stuw u3</div><div class="stat-val" id="s-u3">—</div><div class="stat-unit">Cantoni</div></div>
       </div>
 
       <hr class="divider">
@@ -90,6 +90,20 @@
       <div class="ref-row"><span>Epoch</span><span class="ref-val" id="cur-epoch">—</span></div>
     </div>
 
+  </div>
+
+  <!-- 5+6: vergelijkingsrij -->
+  <div class="grid" style="margin-top: 14px;">
+    <div class="card">
+      <p class="card-title">Waterpeilen: MPC vs. geen regeling</p>
+      <p class="card-sub">Doorgetrokken = MPC &nbsp;|&nbsp; Gestippeld = open lus (u=0) &nbsp;|&nbsp; Horizontale lijn = setpoint</p>
+      <canvas id="ch-compare"></canvas>
+    </div>
+    <div class="card">
+      <p class="card-title">Sluisbewegingen — MPC stuurcommando's</p>
+      <p class="card-sub">Eenheden: Cantoni [0–0.5] &nbsp;|&nbsp; Trapvorm toont discrete stuurstappen &nbsp;|&nbsp; Zonder regeling: u = 0</p>
+      <canvas id="ch-gates"></canvas>
+    </div>
   </div>
 
 <script>
@@ -142,9 +156,20 @@ const chartInnov = makeChart('ch-innov', 'innovatie [m]', [
   ...colors.map((c,i) => ({ label: `Pool ${i+1}`, borderColor: c, fill: false, data: [], pointRadius: 0, borderWidth: 2 })),
 ]);
 
-const chartU = makeChart('ch-umpc', 'servo-waarde [0–255]',
+const chartU = makeChart('ch-umpc', 'Cantoni [0–0.5]',
   colors.map((c,i) => ({ label: `Stuw ${i+1}`, borderColor: c, fill: false, data: [], pointRadius: 0, borderWidth: 2 })),
-  0, 255
+  0, 0.5
+);
+
+const chartCompare = makeChart('ch-compare', 'waterpeil [m]', [
+  ...colors.map((c,i) => ({ label: `Pool ${i+1} MPC`,          borderColor: c, fill: false, data: [], pointRadius: 0, borderWidth: 2 })),
+  ...colors.map((c,i) => ({ label: `Pool ${i+1} geen regeling`, borderColor: c, borderDash: [5,4], fill: false, data: [], pointRadius: 0, borderWidth: 1.5 })),
+  ...Y_REF.map((ref,i) => ({ label: `Setpoint ${i+1}`,          borderColor: colors[i], borderDash: [2,6], fill: false, data: [], pointRadius: 0, borderWidth: 1 })),
+]);
+
+const chartGates = makeChart('ch-gates', 'Cantoni [0–0.5]',
+  colors.map((c,i) => ({ label: `Sluis ${i+1}`, borderColor: c, fill: false, data: [], pointRadius: 0, borderWidth: 2, stepped: 'before' })),
+  0, 0.5
 );
 
 function parseCSV(text) {
@@ -175,9 +200,11 @@ async function poll() {
     const rows = parseCSV(text);
     if (rows.length === 0) return;
 
-    chartLevels.data.labels = []; chartLevels.data.datasets.forEach(d => d.data = []);
-    chartInnov.data.labels  = []; chartInnov.data.datasets.forEach(d => d.data = []);
-    chartU.data.labels      = []; chartU.data.datasets.forEach(d => d.data = []);
+    chartLevels.data.labels  = []; chartLevels.data.datasets.forEach(d => d.data = []);
+    chartInnov.data.labels   = []; chartInnov.data.datasets.forEach(d => d.data = []);
+    chartU.data.labels       = []; chartU.data.datasets.forEach(d => d.data = []);
+    chartCompare.data.labels = []; chartCompare.data.datasets.forEach(d => d.data = []);
+    chartGates.data.labels   = []; chartGates.data.datasets.forEach(d => d.data = []);
 
     const recent = rows.slice(-MAX_POINTS);
     recent.forEach(r => {
@@ -185,9 +212,14 @@ async function poll() {
       push(chartLevels, epoch, [r[1],r[2],r[3], r[4],r[5],r[6]]);
       push(chartInnov,  epoch, [r[7],r[8],r[9]]);
       push(chartU,      epoch, [r[10],r[11],r[12]]);
+      // kolommen 14-16: y_nompc (NaN in hardware-modus → null voor Chart.js gaten)
+      const nm = [r[14],r[15],r[16]].map(v => (v == null || isNaN(v)) ? null : v);
+      push(chartCompare, epoch, [r[1],r[2],r[3], nm[0],nm[1],nm[2], Y_REF[0],Y_REF[1],Y_REF[2]]);
+      push(chartGates,   epoch, [r[10],r[11],r[12]]);
     });
 
     chartLevels.update(); chartInnov.update(); chartU.update();
+    chartCompare.update(); chartGates.update();
 
     // Status panel
     const last = rows[rows.length - 1];
