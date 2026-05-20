@@ -6,6 +6,38 @@
 addpath(fileparts(mfilename('fullpath')));
 twin_config;
 
+%% Opstartdialog — setpoints en beginsluisposities
+antw = inputdlg( ...
+    {'Pool 1 setpoint [m]:', ...
+     'Pool 2 setpoint [m]:', ...
+     'Pool 3 setpoint [m]:', ...
+     'Sluis 1 beginpositie [servo 0–255]:', ...
+     'Sluis 2 beginpositie [servo 0–255]:', ...
+     'Sluis 3 beginpositie [servo 0–255]:'}, ...
+    'WIS Digital Twin — Instellingen', 1, ...
+    {num2str(y_ref(1)), num2str(y_ref(2)), num2str(y_ref(3)), '0', '0', '0'});
+if isempty(antw)
+    fprintf('Geen instellingen ingevoerd — simulatie afgebroken.\n');
+    return
+end
+vals = cellfun(@str2double, antw);
+if any(isnan(vals(1:3))) || any(vals(1:3) <= 0) || any(vals(1:3) > 0.50)
+    warning('digital_twin: ongeldige setpoints — standaard [%.2f %.2f %.2f] m gebruikt.', ...
+        y_ref(1), y_ref(2), y_ref(3));
+else
+    y_ref = vals(1:3)';
+end
+servo_init = round(vals(4:6));
+if any(isnan(servo_init)) || any(servo_init < 0) || any(servo_init > 255)
+    warning('digital_twin: ongeldige sluisposities — start met gesloten sluizen (0).');
+    u_init = zeros(3,1);
+else
+    u_init = servo_init' / 255 * 0.5;   % servo [0–255] → Cantoni [0–0.5]
+end
+fprintf('Setpoints:      [%.3f  %.3f  %.3f] m\n',          y_ref(1),      y_ref(2),      y_ref(3));
+fprintf('Beginposities:  [%3d  %3d  %3d] servo  →  [%.3f  %.3f  %.3f] Cantoni\n', ...
+        servo_init(1), servo_init(2), servo_init(3), u_init(1), u_init(2), u_init(3));
+
 %% Load plant matrices from pre-computed workspace
 % comb_plant_cont is the continuous-time Cantoni plant (Ap, Bp, Cp).
 % We discretize it at 1 Hz here so the Kalman/MPC match the twin loop rate.
@@ -44,7 +76,7 @@ x_hat = zeros(size(A,1), 1);
 P     = eye(size(A,1));
 
 %% Initialise MPC
-u_prev = zeros(size(B,2), 1);
+u_prev = u_init;
 
 %% Initialise simulator plant state (only used when USE_HARDWARE = false)
 x_plant           = zeros(size(A,1), 1);

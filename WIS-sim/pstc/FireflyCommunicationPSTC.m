@@ -184,7 +184,7 @@ classdef FireflyCommunicationPSTC < handle
                 % Digital twin update (only when twin_active = true)
                 if obj.twin_active
                     y_abs = [double(data(7)); double(data(8)); double(data(9))] / 1e6;
-                    u_col = [double(data(10)); double(data(11)); double(data(12))] / 1000;
+                    u_col = [double(data(3)); double(data(4)); double(data(5))] / 1000;
                     addpath(fullfile(fileparts(mfilename('fullpath')), '../../WIS-twin'));
                     twin_update_hardware(y_abs, u_col, epoch);
                 end

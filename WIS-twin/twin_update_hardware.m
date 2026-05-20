@@ -8,7 +8,7 @@ function twin_update_hardware(y_meas, u_actual, epoch)
 
 persistent x_hat P u_mpc_prev log_file log_file_latest plt ...
            t_vec y_hist y_pred_hist innov_hist u_hist K_diag_hist ...
-           A B C wl_idx
+           A B C wl_idx d_leak_nom
 
 % Lazy initialisatie bij eerste aanroep
 if isempty(x_hat)
@@ -18,6 +18,7 @@ if isempty(x_hat)
     disc = c2d(comb_plant_cont, 1, 'zoh');
     A = disc.A; B = disc.B; C = disc.C;
     wl_idx     = arrayfun(@(i) find(abs(C(i,:)) > 0.5, 1), 1:3)';
+    d_leak_nom = twin_compute_leakage(y_ref, Wis, wl_idx, size(A,1));
     x_hat      = zeros(size(A, 1), 1);
     P          = eye(size(A, 1));
     u_mpc_prev = zeros(size(B, 2), 1);
@@ -42,7 +43,7 @@ end
 % Kalman update met echte Cantoni-output en lekkagecorrectie
 y_dev  = y_meas - y_ref;
 h_est  = C * x_hat + y_ref;
-d_leak = twin_compute_leakage(h_est, Wis, wl_idx, size(A,1));
+d_leak = twin_compute_leakage(h_est, Wis, wl_idx, size(A,1)) - d_leak_nom;
 [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_actual, d_leak);
 
 % MPC (berekent optimale actie; kan niet verstuurd worden via huidig PSTC-protocol)
@@ -55,7 +56,7 @@ mpc_traj = zeros(3, N);
 x_tmp = x_hat;
 for i = 1:N
     h_tmp         = C * x_tmp + y_ref;
-    d_mpc         = twin_compute_leakage(h_tmp, Wis, wl_idx, size(A,1));
+    d_mpc         = twin_compute_leakage(h_tmp, Wis, wl_idx, size(A,1)) - d_leak_nom;
     x_tmp         = A * x_tmp + B * u_mpc + d_mpc;
     mpc_traj(:,i) = C * x_tmp + y_ref;
 end
@@ -70,7 +71,7 @@ y_pred_hist = [y_pred_hist, y_pred];
 innov_hist  = [innov_hist,  innov];
 u_hist      = [u_hist,      u_mpc];
 K_gain      = (P * C') / (C * P * C' + R_kal);
-K_diag_hist = [K_diag_hist, diag(K_gain(1:3,:))];
+K_diag_hist = [K_diag_hist, [K_gain(wl_idx(1),1); K_gain(wl_idx(2),2); K_gain(wl_idx(3),3)]];
 
 if PLOT_LIVE
     twin_plot_update(plt, t_vec, y_hist, y_pred_hist, innov_hist, u_hist, K_diag_hist, mpc_traj, y_ref);
