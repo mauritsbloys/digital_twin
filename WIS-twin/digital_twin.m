@@ -110,6 +110,12 @@ u_hist         = zeros(3, MAX_STEPS);
 K_diag_hist    = zeros(3, MAX_STEPS);
 y_nompc_hist   = nan(3,  MAX_STEPS);
 
+%% Lekkagefout-schatter (AEMF-gebaseerd, sliding window)
+FAULT_WINDOW = 20;
+innov_buf    = nan(3, FAULT_WINDOW);
+hest_buf     = nan(3, FAULT_WINDOW);
+c_leak_hat   = zeros(3, 1);
+
 %% Open serial connection for hardware mode
 if USE_HARDWARE
     device = serialport(COM_PORT, 115200, 'Timeout', 2);
@@ -181,6 +187,17 @@ while step < MAX_STEPS
     h_est   = C * x_hat + y_ref;
     d_leak  = twin_compute_leakage(h_est, Wis, wl_idx, size(A,1)) - d_leak_nom;
     [x_hat, P, innov] = twin_kalman_update(A, B, C, Q_kal, R_kal, x_hat, P, y_dev, u_kal, d_leak);
+
+    %% 2b. Lekkagefout-schatting (elke FAULT_WINDOW stappen)
+    h_est_now = C * x_hat + y_ref;
+    innov_buf  = [innov_buf(:,2:end), innov];
+    hest_buf   = [hest_buf(:,2:end),  h_est_now];
+    if mod(step, FAULT_WINDOW) == 0 && step >= FAULT_WINDOW
+        [c_leak_hat, sig_min] = twin_estimate_leakage_faults( ...
+            innov_buf, hest_buf, Wis, wl_idx, C, size(A,1));
+        fprintf('Lekkagefout c = [%.3f  %.3f  %.3f],  sigma_min^2 = %.2e\n', ...
+            c_leak_hat(1), c_leak_hat(2), c_leak_hat(3), sig_min);
+    end
 
     %% 3. MPC
     u_mpc  = twin_mpc_solve(A, B, C, x_hat, zeros(size(C,1),1), Q_mpc, R_mpc, N, du_max, u_min, u_max, u_prev);
