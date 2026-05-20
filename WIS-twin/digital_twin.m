@@ -25,14 +25,14 @@ if any(isnan(vals(1:3))) || any(vals(1:3) <= 0) || any(vals(1:3) > 0.50)
     warning('digital_twin: ongeldige setpoints — standaard [%.2f %.2f %.2f] m gebruikt.', ...
         y_ref(1), y_ref(2), y_ref(3));
 else
-    y_ref = vals(1:3)';
+    y_ref = vals(1:3);
 end
 servo_init = round(vals(4:6));
 if any(isnan(servo_init)) || any(servo_init < 0) || any(servo_init > 255)
     warning('digital_twin: ongeldige sluisposities — start met gesloten sluizen (0).');
     u_init = zeros(3,1);
 else
-    u_init = servo_init' / 255 * 0.5;   % servo [0–255] → Cantoni [0–0.5]
+    u_init = servo_init / 255 * 0.5;   % servo [0–255] → Cantoni [0–0.5]
 end
 fprintf('Setpoints:      [%.3f  %.3f  %.3f] m\n',          y_ref(1),      y_ref(2),      y_ref(3));
 fprintf('Beginposities:  [%3d  %3d  %3d] servo  →  [%.3f  %.3f  %.3f] Cantoni\n', ...
