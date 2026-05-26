@@ -1,4 +1,4 @@
-function twin_plot_update(handles, t_vec, y_hist, y_pred_hist, innov_hist, u_hist, K_diag_hist, mpc_traj, ~, y_nompc_hist)
+function twin_plot_update(handles, t_vec, y_hist, y_pred_hist, innov_hist, u_hist, K_diag_hist, mpc_traj, y_ref, y_nompc_hist)
 %TWIN_PLOT_UPDATE  Refresh all live plot windows with current history.
 %   Call every time step inside the main loop.
 
@@ -8,7 +8,25 @@ for i = 1:3
     set(handles.h_u(i),     'XData', t_vec, 'YData', u_hist(i,:));
     set(handles.h_innov(i), 'XData', t_vec, 'YData', innov_hist(i,:));
     set(handles.h_kg(i),    'XData', t_vec, 'YData', K_diag_hist(i,:));
+
+    % Update reference lines to reflect current y_ref (may differ from init)
+    handles.h_ref(i).Value     = y_ref(i);
+    handles.h_ref_hor(i).Value = y_ref(i);
+    handles.h_ref_cmp(i).Value = y_ref(i);
 end
+
+% Dynamic Y-axis: cover both measured data and all setpoints with padding
+all_y = [y_hist(:); y_pred_hist(:); y_ref(:)];
+if nargin >= 10 && ~isempty(y_nompc_hist)
+    all_y = [all_y; y_nompc_hist(~isnan(y_nompc_hist(:)))];
+end
+y_lo  = min(all_y);
+y_hi  = max(all_y);
+pad   = max(0.02, 0.08 * (y_hi - y_lo));
+ylims = [y_lo - pad, y_hi + pad];
+ylim(handles.ax_levels,  ylims);
+ylim(handles.ax_horizon, ylims);
+ylim(handles.ax_compare, ylims);
 
 t_hor = t_vec(end) + (0:size(mpc_traj,2)-1);
 for i = 1:3

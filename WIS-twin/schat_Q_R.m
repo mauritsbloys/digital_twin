@@ -123,11 +123,24 @@ for k = 1:N
     P          = IKC * P_prior * IKC' + K * R_kal_final * K';
 end
 
-figure('Name', 'Innovatie witheidstoets');
+max_lags = min(30, floor(N/4));
+
+figure('Name', 'Innovation Whiteness Test', 'NumberTitle', 'off', ...
+       'Position', [100 100 820 560]);
+tl = tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+title(tl, 'Innovation Whiteness Test', 'FontWeight', 'bold', 'FontSize', 13);
+
 for i = 1:3
-    subplot(3,1,i)
-    autocorr(innov(i,:), 'NumLags', min(30, floor(N/4)));
-    title(sprintf('Innovatie autocorrelatie — sensor y%d', i))
-    grid on
+    ax = nexttile;
+    autocorr(innov(i,:), 'NumLags', max_lags);
+    title(ax, sprintf('Sensor y_%d', i), 'FontWeight', 'normal', 'FontSize', 11);
+    ylabel(ax, 'ACF');
+    if i < 3
+        xlabel(ax, '');
+    else
+        xlabel(ax, 'Lag (steps)');
+    end
+    grid(ax, 'on');
 end
-fprintf('\nValidatie: ACF-pieken bij lag >= 1 moeten binnen de blauwe band vallen.\n');
+
+fprintf('\nValidation: ACF spikes at lag >= 1 should fall within the confidence bounds.\n');
